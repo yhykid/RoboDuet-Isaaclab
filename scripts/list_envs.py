@@ -27,7 +27,7 @@ simulation_app = app_launcher.app
 import gymnasium as gym
 from prettytable import PrettyTable
 
-import roboduet.tasks  # noqa: F401
+import roboduet  # noqa: F401
 
 
 def main():
