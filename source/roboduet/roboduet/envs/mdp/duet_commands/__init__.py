@@ -1,2 +1,2 @@
-from .uniform_duet_command import UniformDuetCommand
+from .uniform_duet_command import DuetCommand
 from .duet_command_cfg import DuetCommandCfg

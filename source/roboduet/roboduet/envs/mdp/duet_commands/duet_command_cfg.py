@@ -5,11 +5,11 @@ from isaaclab.utils import configclass
 
 import math
 from dataclasses import MISSING
-from .uniform_duet_command import UniformDuetCommand
+from .uniform_duet_command import DuetCommand
 
 @configclass
 class DuetCommandCfg(CommandTermCfg):
-    class_type: type = UniformDuetCommand
+    class_type: type = DuetCommand
     asset_name: str = MISSING
     heading_control_stiffness: float = 1.0
     small_commands_to_zero: bool = True 
@@ -24,9 +24,10 @@ class DuetCommandCfg(CommandTermCfg):
         lin_vel_clip: float = MISSING 
         ang_vel_clip: float = MISSING 
 
+
+
     ranges: Ranges = MISSING
     clips: Clips = MISSING
-
     goal_vel_visualizer_cfg: VisualizationMarkersCfg = GREEN_ARROW_X_MARKER_CFG.replace(
         prim_path="/Visuals/Command/velocity_goal"
     )

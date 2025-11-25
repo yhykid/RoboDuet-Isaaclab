@@ -12,7 +12,8 @@ reset_joints_by_scale
 
 )
 from isaaclab.envs.mdp.rewards import undesired_contacts
-from roboduet.envs.mdp.duet_actions import DelayedJointPositionActionCfg 
+from isaaclab.envs.mdp.actions import JointPositionActionCfg , JointEffortActionCfg
+from roboduet.envs.mdp.duet_actions import MixedPDArmMultiLegJointPositionActionCfg 
 from roboduet.envs.mdp import terminations, rewards, duet_events, events, observations, duet_commands
 
 @configclass
@@ -313,14 +314,10 @@ class EventCfg:
 
 @configclass
 class ActionsCfg:
-    joint_pos = DelayedJointPositionActionCfg(
-        asset_name="robot", 
-        joint_names=[".*"], 
-        scale=0.25, 
-        use_default_offset=True,
-        action_delay_steps = [1, 1],
-        delay_update_global_steps = 24 * 8000,
-        history_length = 8,
-        use_delay = True,
-        clip = {'.*': (-4.8,4.8)}
-        )
+    joint_pos = MixedPDArmMultiLegJointPositionActionCfg(
+        asset_name="robot",
+        joint_names=[".*"],
+        arm_joint_names=[ "zarx_j[1-8]"],
+        leg_joint_names=[".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"],
+        scale=0.25,
+    )

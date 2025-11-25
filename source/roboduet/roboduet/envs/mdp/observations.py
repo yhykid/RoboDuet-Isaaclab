@@ -15,16 +15,60 @@ from typing import TYPE_CHECKING
 from isaaclab.managers import ManagerTermBase, SceneEntityCfg
 from isaaclab.sensors import ContactSensor, RayCaster, RayCasterCamera
 from isaaclab.assets import Articulation
-from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi
+from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi,quat_apply , quat_from_euler_xyz, quat_rotate, quat_mul
 from roboduet.envs.mdp.duet_events import DuetEvent 
 from collections.abc import Sequence
 import numpy as np 
 import cv2
+from params_proto import PrefixProto, ParamsProto
+from roboduet.utils.switch import global_switch
+from roboduet.utils.math import *
 if TYPE_CHECKING:
     from roboduet.envs import DuetManagerBasedRLEnv
     from isaaclab.managers import ObservationTermCfg
 
+class obs_scales(PrefixProto, cli=False):
+        lin_vel = 2.0
+        ang_vel = 0.25
+        dof_pos = 1.0
+        dof_vel = 0.05
+        imu = 0.1
+        height_measurements = 5.0
+        friction_measurements = 1.0
+        body_height_cmd = 2.0
+        gait_phase_cmd = 1.0
+        gait_freq_cmd = 1.0
+        footswing_height_cmd = 0.15
+        body_pitch_cmd = 1.
+        body_roll_cmd = 1.
+        aux_reward_cmd = 1.0
+        compliance_cmd = 1.0
+        stance_width_cmd = 1.0
+        stance_length_cmd = 1.0
+        segmentation_image = 1.0
+        rgb_image = 1.0
+        depth_image = 1.0
+class normalization(PrefixProto, cli=False):
+        clip_observations = 100.
+        clip_actions = 100.
 
+        friction_range = [0.05, 4.5]
+        ground_friction_range = [0.05, 4.5]
+        restitution_range = [0, 1.0]
+        added_mass_range = [-1., 3.]
+        com_displacement_range = [-0.1, 0.1]
+        motor_strength_range = [0.9, 1.1]
+        motor_offset_range = [-0.05, 0.05]
+        Kp_factor_range = [0.8, 1.3]
+        Kd_factor_range = [0.5, 1.5]
+        joint_friction_range = [0.0, 0.7]
+        contact_force_range = [0.0, 50.0]
+        contact_state_range = [0.0, 1.0]
+        body_velocity_range = [-6.0, 6.0]
+        foot_height_range = [0.0, 0.15]
+        body_height_range = [0.0, 0.60]
+        gravity_range = [-1.0, 1.0]
+        motion = [-0.01, 0.01]
 class RoboDuetObservations(ManagerTermBase):
 
     def __init__(self, cfg: ObservationTermCfg, env: DuetManagerBasedRLEnv):
@@ -34,14 +78,10 @@ class RoboDuetObservations(ManagerTermBase):
         self.asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
         self.sensor_cfg = cfg.params["sensor_cfg"]
         self.asset_cfg = cfg.params["asset_cfg"]
-        self.history_length = cfg.params['history_length']
-        self._obs_history_buffer = torch.zeros(self.num_envs, self.history_length, 3 + 2 + 3 + 4 + 36 + 5, device=self.device)
-        self.delta_yaw = torch.zeros(self.num_envs, device=self.device)
-        self.delta_next_yaw = torch.zeros(self.num_envs, device=self.device)
-        self.measured_heights = torch.zeros(self.num_envs, 132, device=self.device)
         self.env = env
-        self.body_id = self.asset.find_bodies('base')[0]
-        
+        # self.body_id = self.asset.find_bodies('base')[0]
+        self.clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
+                                        requires_grad=False)
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
         self._obs_history_buffer[env_ids, :, :] = 0. 
 
@@ -50,49 +90,26 @@ class RoboDuetObservations(ManagerTermBase):
         env: DuetManagerBasedRLEnv,        
         asset_cfg: SceneEntityCfg,
         sensor_cfg: SceneEntityCfg,
-        parkour_name: str,
-        history_length: int,
         ) -> torch.Tensor:
         
         roll, pitch, yaw = euler_xyz_from_quat(self.asset.data.root_quat_w)
+        
         imu_obs = torch.stack((wrap_to_pi(roll), wrap_to_pi(pitch)), dim=1).to(self.device)
-        if env.common_step_counter % 5 == 0:
-            self.delta_yaw = self.duet_event.target_yaw - wrap_to_pi(yaw)
-            self.delta_next_yaw = self.duet_event.next_target_yaw - wrap_to_pi(yaw)
-        commands = env.command_manager.get_command('base_velocity')
-        obs_buf = torch.cat((
-                            self.asset.data.root_ang_vel_b * 0.25,   #[1,3] 0~2
-                            imu_obs,    #[1,2] 3~4
-                            0*self.delta_yaw[:, None],   #[1,1] 5
-                            self.delta_yaw[:, None], #[1,1] 6
-                            self.delta_next_yaw[:, None], #[1,1] 7 
-                            0*commands[:, 0:2], #[1,2] 8 
-                            commands[:, 0:1],  #[1,1] 9
-                            env_idx_tensor,
-                            invert_env_idx_tensor,
-                            self.asset.data.joint_pos - self.asset.data.default_joint_pos,
-                            self.asset.data.joint_vel * 0.05 ,
-                            env.action_manager.get_term('joint_pos').action_history_buf[:, -1],
-                            self._get_contact_fill(),
-                            ),dim=-1)
-        priv_explicit = self._get_priv_explicit()
-        priv_latent = self._get_priv_latent()
-        observations = torch.cat([obs_buf, #53
-                                  self.measured_heights, #132
-                                  priv_explicit, # 9
-                                  priv_latent, # 29
-                                  self._obs_history_buffer.view(self.num_envs, -1)
-                                  ],dim=-1)
-        obs_buf[:, 6:8] = 0
-        self._obs_history_buffer = torch.where(
-            (env.episode_length_buf <= 1)[:, None, None], 
-            torch.stack([obs_buf] * self.history_length, dim=1),
-            torch.cat([
-                self._obs_history_buffer[:, 1:],
-                obs_buf.unsqueeze(1)
-            ], dim=1)
-        )
-        return observations 
+
+        commands_dog,commands_arm = env.command_manager.get_command('base_velocity')
+
+        obs_buf = torch.cat(((self.asset.data.joint_pos[:,:18] - self.asset.data.default_joint_pos[:,:18]) * obs_scales.dof_pos, #18
+                            self.asset.data.joint_vel * obs_scales.dof_vel, # 12
+                            env.action_manager.get_term('joint_pos')._leg_raw_actions, #12
+                            env.action_manager.get_term('joint_pos')._arm_raw_actions, # 8 
+                            commands_dog[:,:3],# todo :看看command scale怎么加
+                            commands_arm if global_switch.switch_open else torch.zeros_like(commands_arm[:]),
+                            roll.unsqueeze(1), #1
+                            pitch.unsqueeze(1),
+                            self.clock_inputs # 4 #todo 先放在这
+                            ), dim=-1)
+
+        return obs_buf 
 
     def _get_contact_fill(
         self,
@@ -129,5 +146,38 @@ class RoboDuetObservations(ManagerTermBase):
             (joint_stiffness/ default_joint_stiffness) - 1, 
             (joint_damping/ default_joint_damping) - 1
         ), dim=-1).to(self.device)
+    
+    def get_lpy_in_base_coord(self, env_ids):
+        forward = quat_apply(self.base_quat[env_ids], self.forward_vec[env_ids])
+        yaw = torch.atan2(forward[:, 1], forward[:, 0])
 
+        self.grasper_move = torch.tensor([0.0, 0, 0.1], dtype=torch.float, device=self.device).repeat((len(env_ids), 1))
+        self.grasper_move_in_world = quat_rotate(self.end_effector_state[env_ids, 3:7], self.grasper_move)
+        self.grasper_in_world = self.end_effector_state[env_ids, :3] + self.grasper_move_in_world
+        #print('4',self.end_effector_state[:,3:7])
+        x = torch.cos(yaw) * (self.grasper_in_world[:, 0] - self.root_states[env_ids, 0]) \
+            + torch.sin(yaw) * (self.grasper_in_world[:, 1] - self.root_states[env_ids, 1])
+        y = -torch.sin(yaw) * (self.grasper_in_world[:, 0] - self.root_states[env_ids, 0]) \
+            + torch.cos(yaw) * (self.grasper_in_world[:, 1] - self.root_states[env_ids, 1])
+        z = torch.mean(self.grasper_in_world[:, 2].unsqueeze(1) - self.measured_heights, dim=1) - 0.38
 
+        l = torch.sqrt(x**2 + y**2 + z**2)
+        p = torch.atan2(z, torch.sqrt(x**2 + y**2))
+        y_aw = torch.atan2(y, x)
+
+        return torch.stack([l, p, y_aw], dim=-1)
+    
+    def _get_priv_obs(
+        self,
+        ):
+        friction_coeffs_scale, friction_coeffs_shift = get_scale_shift(normalization.friction_range)
+        restitutions_scale, restitutions_shift = get_scale_shift(normalization.restitution_range)
+        privileged_obs_buf = torch.cat(((self.restitutions[:, 0].unsqueeze(1) - restitutions_shift) * restitutions_scale),
+                                       (self.friction_coeffs[:, 0].unsqueeze(1) - friction_coeffs_shift) * friction_coeffs_scale, dim=1)
+
+        lpy = self.get_lpy_in_base_coord(torch.arange(self.num_envs, device=self.device))
+        forward = quat_apply(self.base_quat, self.forward_vec)
+        yaw = torch.atan2(forward[:, 1], forward[:, 0])
+        quat_base = quat_from_euler_xyz(torch.zeros_like(yaw), torch.zeros_like(yaw), yaw)
+        quat_ee_in_base = quat_mul(quat_base, self.end_effector_state[:, 3:7])
+        privileged_obs_buf = torch.cat((privileged_obs_buf, lpy, quat_ee_in_base), dim=1)

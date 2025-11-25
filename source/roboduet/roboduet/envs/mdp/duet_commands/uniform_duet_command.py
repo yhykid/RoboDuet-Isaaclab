@@ -24,8 +24,13 @@ class DuetCommand(CommandTerm):
         self.robot: Articulation = env.scene[cfg.asset_name]
         self.vel_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_target = torch.zeros(self.num_envs, device=self.device)
-        
-        self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
+        self.commands_dog = torch.zeros(self.num_envs, 5, dtype=torch.float,
+                                          device=self.device, requires_grad=False) # x vel, y vel, yaw vel, heading
+        self.commands_arm = torch.zeros(self.num_envs, 6, dtype=torch.float,
+                                          device=self.device, requires_grad=False) # lpy, rpy for transfer to camera base
+        self.commands_arm_obs = torch.zeros(self.num_envs, 6, dtype=torch.float,
+                                          device=self.device, requires_grad=False)
+        self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device) 
         self.metrics["error_vel_yaw"] = torch.zeros(self.num_envs, device=self.device)
 
     def __str__(self) -> str:
@@ -39,7 +44,7 @@ class DuetCommand(CommandTerm):
     @property
     def command(self) -> torch.Tensor:
         """The desired base velocity command in the base frame. Shape is (num_envs, 3)."""
-        return self.vel_command_b
+        return self.commands_dog,self.commands_arm
 
 
     def _update_metrics(self):

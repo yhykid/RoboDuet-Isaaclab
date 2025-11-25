@@ -10,7 +10,7 @@ import imageio
 import numpy as np
 import torch
 from params_proto import PrefixProto
-from roboduet import global_switch
+from roboduet.utils.switch import global_switch
 import rsl_rl
 from rsl_rl.env import VecEnv
 from .ac_duet import ArmActorCritic,DogActorCritic
