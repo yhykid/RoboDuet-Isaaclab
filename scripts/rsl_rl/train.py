@@ -33,7 +33,7 @@ cli_args.add_rsl_rl_args(parser)
 # append AppLauncher cli args
 AppLauncher.add_app_launcher_args(parser)
 args_cli, hydra_args = parser.parse_known_args()
-
+args_cli.headless = True
 # always enable cameras to record video
 if args_cli.video:
     args_cli.enable_cameras = True
@@ -93,11 +93,12 @@ from isaaclab_tasks.utils import get_checkpoint_path
 from isaaclab_tasks.utils.hydra import hydra_task_config
 
 import roboduet  # noqa: F401
-from roboduet.agents.parkour_rl_cfg import ParkourRslRlOnPolicyRunnerCfg
-from vecenv_wrapper import ParkourRslRlVecEnvWrapper
+from roboduet.agents.duet_rl_cfg import DuetRslRlOnPolicyRunnerCfg
+from vecenv_wrapper import DuetRslRlVecEnvWrapper
 from roboduet.envs import (
-ParkourManagerBasedRLEnv
+DuetManagerBasedRLEnv
 )
+from modules.on_policy_runner_duet import OnPolicyRunnerDuet
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -166,10 +167,10 @@ def main(env_cfg: ManagerBasedRLEnvCfg | DirectRLEnvCfg | DirectMARLEnvCfg, agen
         env = gym.wrappers.RecordVideo(env, **video_kwargs)
 
     # wrap around environment for rsl-rl
-    env = RslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
+    env = DuetRslRlVecEnvWrapper(env, clip_actions=agent_cfg.clip_actions)
 
     # create runner from rsl-rl
-    runner = OnPolicyRunner(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
+    runner = OnPolicyRunnerWithExtractor(env, agent_cfg.to_dict(), log_dir=log_dir, device=agent_cfg.device)
     # write git state to logs
     runner.add_git_repo_to_log(__file__)
     # load the checkpoint

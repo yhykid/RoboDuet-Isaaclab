@@ -5,11 +5,11 @@ from isaaclab.utils import configclass
 
 import math
 from dataclasses import MISSING
-from .uniform_parkour_command import UniformParkourCommand
+from .uniform_duet_command import UniformDuetCommand
 
 @configclass
-class ParkourCommandCfg(CommandTermCfg):
-    class_type: type = UniformParkourCommand
+class DuetCommandCfg(CommandTermCfg):
+    class_type: type = UniformDuetCommand
     asset_name: str = MISSING
     heading_control_stiffness: float = 1.0
     small_commands_to_zero: bool = True 

@@ -8,25 +8,26 @@ import numpy as np
 from isaaclab.assets import Articulation
 from isaaclab.markers import VisualizationMarkers
 from isaaclab.utils.math import wrap_to_pi
-from roboduet.managers import ParkourTerm
+from roboduet.managers import DuetTerm
 from roboduet.terrains import ParkourTerrainGeneratorCfg, ParkourTerrainImporter, ParkourTerrainGenerator
 
 if TYPE_CHECKING:
-    from roboduet.envs import ParkourManagerBasedRLEnv
-    from .parkour_events_cfg import ParkourEventsCfg
+    from roboduet.envs import DuetManagerBasedRLEnv
+    from .duet_events_cfg import DuetEventsCfg
 
 
-class ParkourEvent(ParkourTerm):
-    cfg: ParkourEventsCfg
+class DuetEvent(DuetTerm):
+    cfg: DuetEventsCfg
 
     def __init__(
         self, 
-        cfg: ParkourEventsCfg, 
-        env: ParkourManagerBasedRLEnv
+        cfg: DuetEventsCfg, 
+        env: DuetManagerBasedRLEnv
         ):
         super().__init__(cfg, env)
 
         self.episode_length_s = env.cfg.episode_length_s
+        # todo : modify 
         self.reach_goal_delay = cfg.reach_goal_delay
         self.num_future_goal_obs = cfg.num_future_goal_obs
         self.next_goal_threshold = cfg.next_goal_threshold

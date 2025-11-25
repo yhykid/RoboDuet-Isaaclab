@@ -5,16 +5,16 @@ from typing import TYPE_CHECKING
 from isaaclab.envs.ui.base_env_window import BaseEnvWindow
 import omni.kit.app
 if TYPE_CHECKING:
-    from roboduet.envs.parkour_manager_based_env import ParkourManagerBasedEnv
+    from roboduet.envs.duet_manager_based_env import DuetManagerBasedEnv
 
-class ParkourManagerBasedRLEnvWindow(BaseEnvWindow):
+class DuetManagerBasedRLEnvWindow(BaseEnvWindow):
     """Window manager for the RL environment.
 
     On top of the basic environment window, this class adds controls for the RL environment.
     This includes visualization of the command manager.
     """
 
-    def __init__(self, env: ParkourManagerBasedEnv, window_name: str = "IsaacLab"):
+    def __init__(self, env: DuetManagerBasedEnv, window_name: str = "IsaacLab"):
         """Initialize the window.
 
         Args:
@@ -32,5 +32,5 @@ class ParkourManagerBasedRLEnvWindow(BaseEnvWindow):
                     self._visualize_manager(title="Rewards", class_name="reward_manager")
                     self._visualize_manager(title="Curriculum", class_name="curriculum_manager")
                     self._visualize_manager(title="Termination", class_name="termination_manager")
-                    self._visualize_manager(title="Parkour", class_name="parkour_manager")
+                    self._visualize_manager(title="Roboduet", class_name="roboduet_manager")
 

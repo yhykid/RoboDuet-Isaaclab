@@ -29,20 +29,11 @@ from . import agents
 
 gym.register(
     id="Template-Roboduet-v0",
-    entry_point="roboduet.envs:ParkourManagerBasedRLEnv",
+    entry_point="roboduet.envs:DuetManagerBasedRLEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.envs.parkour_teacher_cfg:UnitreeGo2TeacherParkourEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_teacher_ppo_cfg:UnitreeGo2ParkourTeacherPPORunnerCfg",
+        "env_cfg_entry_point": f"{__name__}.envs.duet_env_cfg:DuetGo2EnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_duet_ppo_cfg:DuetGo2PPORunnerCfg",
     },
 )
 
-gym.register(
-    id = "Template-Roboduet-v1",
-    entry_point="isaaclab.envs:ManagerBasedRLEnv",
-    disable_env_checker=True,
-    kwargs={
-        "env_cfg_entry_point": f"{__name__}.roboduet_env_cfg:RoboduetEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
-    },
-)

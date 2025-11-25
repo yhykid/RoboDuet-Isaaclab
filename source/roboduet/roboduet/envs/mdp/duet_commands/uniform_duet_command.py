@@ -13,17 +13,18 @@ from isaaclab.managers import CommandTerm
 from isaaclab.markers import VisualizationMarkers
 
 if TYPE_CHECKING:
-    from roboduet.envs import ParkourManagerBasedEnv
-    from .parkour_command_cfg import ParkourCommandCfg
+    from roboduet.envs import DuetManagerBasedEnv
+    from .duet_command_cfg import DuetCommandCfg
 
-class UniformParkourCommand(CommandTerm):
-    cfg: ParkourCommandCfg
+class DuetCommand(CommandTerm):
+    cfg: DuetCommandCfg
 
-    def __init__(self, cfg: ParkourCommandCfg, env: ParkourManagerBasedEnv):
+    def __init__(self, cfg: DuetCommandCfg, env: DuetManagerBasedEnv):
         super().__init__(cfg, env)
         self.robot: Articulation = env.scene[cfg.asset_name]
         self.vel_command_b = torch.zeros(self.num_envs, 3, device=self.device)
         self.heading_target = torch.zeros(self.num_envs, device=self.device)
+        
         self.metrics["error_vel_xy"] = torch.zeros(self.num_envs, device=self.device)
         self.metrics["error_vel_yaw"] = torch.zeros(self.num_envs, device=self.device)
 

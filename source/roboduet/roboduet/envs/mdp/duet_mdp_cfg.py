@@ -12,44 +12,44 @@ reset_joints_by_scale
 
 )
 from isaaclab.envs.mdp.rewards import undesired_contacts
-from roboduet.envs.mdp.parkour_actions import DelayedJointPositionActionCfg 
-from roboduet.envs.mdp import terminations, rewards, parkours, events, observations, parkour_commands
+from roboduet.envs.mdp.duet_actions import DelayedJointPositionActionCfg 
+from roboduet.envs.mdp import terminations, rewards, duet_events, events, observations, duet_commands
 
 @configclass
 class CommandsCfg:
     """Command specifications for the MDP."""
 
-    base_velocity = parkour_commands.ParkourCommandCfg(
+    base_velocity = duet_commands.DuetCommandCfg(
         asset_name="robot",
         resampling_time_range=(6.0,6.0 ),
         heading_control_stiffness=0.8,
-        ranges=parkour_commands.ParkourCommandCfg.Ranges(
+        ranges=duet_commands.DuetCommandCfg.Ranges(
             lin_vel_x=(0.3, 0.8), 
             heading=(-1.6, 1.6)
         ),
-        clips= parkour_commands.ParkourCommandCfg.Clips(
+        clips= duet_commands.DuetCommandCfg.Clips(
             lin_vel_clip = 0.2,
             ang_vel_clip = 0.4
         )
     )
 
 @configclass
-class ParkourEventsCfg:
+class DuetEventsCfg:
     """Command specifications for the MDP."""
-    base_parkour = parkours.ParkourEventsCfg(
+    base_parkour = duet_events.DuetEventsCfg(
         asset_name = 'robot',
         )
 
 @configclass
-class TeacherObservationsCfg:
+class ArmObservationsCfg:
     """Observation specifications for the MDP."""
 
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
         # observation terms (order preserved)
-        extreme_parkour_observations = ObsTerm(
-            func=observations.ExtremeParkourObservations,
+        roboduet_observations = ObsTerm(
+            func=observations.RoboDuetObservations,
             params={            
             "asset_cfg":SceneEntityCfg("robot"),
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
@@ -61,48 +61,24 @@ class TeacherObservationsCfg:
     policy: PolicyCfg = PolicyCfg()
 
 @configclass
-class StudentObservationsCfg:
+class TeacherObservationsCfg:
+    """Observation specifications for the MDP."""
 
     @configclass
     class PolicyCfg(ObsGroup):
         """Observations for policy group."""
-        extreme_parkour_observations = ObsTerm(
-            func=observations.ExtremeParkourObservations,
+        # observation terms (order preserved)
+        roboduet_observations = ObsTerm(
+            func=observations.RoboDuetObservations,
             params={            
             "asset_cfg":SceneEntityCfg("robot"),
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
             "parkour_name":'base_parkour',
-            "history_length": 10,
+            "history_length": 10
             },
             clip= (-100,100)
         )
-
-    @configclass
-    class DepthCameraPolicyCfg(ObsGroup):
-        depth_cam = ObsTerm(
-            func=observations.image_features,
-            params={            
-            "sensor_cfg":SceneEntityCfg("depth_camera"),
-            "resize": (58, 87),
-            "buffer_len": 2,
-            "debug_vis":True
-            },
-        )
-
-    @configclass
-    class DeltaYawOkPolicyCfg(ObsGroup):
-        deta_yaw_ok =  ObsTerm(
-            func=observations.obervation_delta_yaw_ok,
-            params={            
-            "parkour_name":'base_parkour',
-            'threshold': 0.6
-            },
-        )
     policy: PolicyCfg = PolicyCfg()
-    depth_camera: DepthCameraPolicyCfg = DepthCameraPolicyCfg()
-    delta_yaw_ok: DeltaYawOkPolicyCfg = DeltaYawOkPolicyCfg()
-
-
 @configclass
 class StudentRewardsCfg:
     reward_collision = RewTerm(

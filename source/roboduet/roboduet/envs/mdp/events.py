@@ -101,7 +101,7 @@ def randomize_actuator_gains(
             stiffness[:, actuator_indices] = asset.data.default_joint_stiffness[env_ids][:, global_indices].clone()
             randomize(stiffness, stiffness_distribution_params)
             actuator.stiffness[env_ids] = stiffness
-            if isinstance(actuator, DCMotor) or isinstance(actuator, ParkourDCMotor):
+            if isinstance(actuator, DCMotor) :#or isinstance(actuator, ParkourDCMotor):
                 asset.write_joint_stiffness_to_sim(stiffness, joint_ids=actuator.joint_indices, env_ids=env_ids)
         # Randomize damping
         if damping_distribution_params is not None:
@@ -109,7 +109,7 @@ def randomize_actuator_gains(
             damping[:, actuator_indices] = asset.data.default_joint_damping[env_ids][:, global_indices].clone()
             randomize(damping, damping_distribution_params)
             actuator.damping[env_ids] = damping
-            if isinstance(actuator, DCMotor) or isinstance(actuator, ParkourDCMotor):
+            if isinstance(actuator, DCMotor) :#or isinstance(actuator, ParkourDCMotor):
                 asset.write_joint_damping_to_sim(damping, joint_ids=actuator.joint_indices, env_ids=env_ids)
 
 def randomize_rigid_body_com(

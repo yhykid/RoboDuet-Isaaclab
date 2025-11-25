@@ -7,8 +7,8 @@
 from __future__ import annotations
 
 import gymnasium as gym
-from .parkour_manager_based_rl_env_cfg import ParkourManagerBasedRLEnvCfg
-from .parkour_manager_based_env import ParkourManagerBasedEnv
+from .duet_manager_based_rl_env_cfg import DuetManagerBasedRLEnvCfg
+from .duet_manager_based_env import DuetManagerBasedEnv
 from isaaclab.ui.widgets import ManagerLiveVisualizer
 from isaacsim.core.version import get_version
 from isaaclab.managers import CommandManager, CurriculumManager, TerminationManager
@@ -17,17 +17,17 @@ from collections.abc import Sequence
 from typing import Any, ClassVar
 import math, torch   
 import numpy as np 
-from roboduet.managers.parkour_reward_manager import ParkourRewardManager
+from roboduet.managers.duet_reward_manager import DuetRewardManager
 
-class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
+class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
     is_vector_env: ClassVar[bool] = True 
     metadata: ClassVar[dict[str, Any]] = {
         "render_modes": [None, "human", "rgb_array"],
         "isaac_sim_version": get_version(),
     }
-    cfg: ParkourManagerBasedRLEnvCfg
+    cfg: DuetManagerBasedRLEnvCfg
 
-    def __init__(self, cfg: ParkourManagerBasedRLEnvCfg, render_mode: str | None = None, **kwargs):
+    def __init__(self, cfg: DuetManagerBasedRLEnvCfg, render_mode: str | None = None, **kwargs):
         self.common_step_counter = 0
         super().__init__(cfg=cfg)
 
@@ -56,7 +56,7 @@ class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
         self.termination_manager = TerminationManager(self.cfg.terminations, self)
         print("[INFO] Termination Manager: ", self.termination_manager)
         # -- reward manager
-        self.reward_manager = ParkourRewardManager(self.cfg.rewards, self)
+        self.reward_manager = DuetRewardManager(self.cfg.rewards, self)
         print("[INFO] Reward Manager: ", self.reward_manager)
         # -- curriculum manager
         self.curriculum_manager = CurriculumManager(self.cfg.curriculum, self)
@@ -77,7 +77,7 @@ class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
             "command_manager": ManagerLiveVisualizer(manager=self.command_manager),
             "termination_manager": ManagerLiveVisualizer(manager=self.termination_manager),
             "curriculum_manager": ManagerLiveVisualizer(manager=self.curriculum_manager),
-            "parkour_manager": ManagerLiveVisualizer(manager=self.parkour_manager),
+            "roboduet_manager": ManagerLiveVisualizer(manager=self.duet_manager),
             "reward_manager": ManagerLiveVisualizer(manager=self.reward_manager),
         }
 
@@ -114,7 +114,7 @@ class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
                 self.sim.render()
             self.scene.update(dt=self.physics_dt)
         
-        self.parkour_manager.compute(dt=self.step_dt)
+        self.duet_manager.compute(dt=self.step_dt)
         # post-step:
         # -- update env counters (used for curriculum generation)
         self.episode_length_buf += 1  # step in current episode (per env)
@@ -151,7 +151,7 @@ class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
             # trigger recorder terms for post-reset calls
             self.recorder_manager.record_post_reset(reset_env_ids)
         self.command_manager.compute(dt=self.step_dt)
-        self.parkour_manager() ##Just calling parkour mananger for using '_gather_cur_goal' attribute 
+        self.duet_manager() ##Just calling duet mananger for using '_gather_cur_goal' attribute 
 
         # -- update command
         # -- step interval events
@@ -254,8 +254,8 @@ class ParkourManagerBasedRLEnv(ParkourManagerBasedEnv, gym.Env):
         # reset the internal buffers of the scene elements
         self.scene.reset(env_ids)
         self.extras["log"] = dict()
-        # -- parkour manager
-        info = self.parkour_manager.reset(env_ids)
+        # --  manager
+        info = self.duet.reset(env_ids)
         self.extras["log"].update(info)
         # apply events such as randomizations for environments that need a reset
         if "reset" in self.event_manager.available_modes:

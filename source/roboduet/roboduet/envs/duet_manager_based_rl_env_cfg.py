@@ -8,9 +8,9 @@ from dataclasses import MISSING
 from isaaclab.utils import configclass
 
 from isaaclab.envs.manager_based_rl_env_cfg import ManagerBasedRLEnvCfg
-from roboduet.envs.parkour_ui import ParkourManagerBasedRLEnvWindow
+from roboduet.envs.roboduet_ui import DuetManagerBasedRLEnvWindow
 
 @configclass
-class ParkourManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
-    ui_window_class_type: type | None = ParkourManagerBasedRLEnvWindow
-    parkours: object = MISSING
+class DuetManagerBasedRLEnvCfg(ManagerBasedRLEnvCfg):
+    ui_window_class_type: type | None = DuetManagerBasedRLEnvWindow
+    roboduet: object = MISSING

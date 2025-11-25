@@ -79,3 +79,45 @@ class ParkourRslRlOnPolicyRunnerCfg(RslRlOnPolicyRunnerCfg):
     depth_encoder: ParkourRslRlDepthEncoderCfg | None = None
     algorithm: ParkourRslRlPpoAlgorithmCfg | ParkourRslRlDistillationAlgorithmCfg = MISSING
 
+################################
+####### roboduet config ########
+################################
+    
+@configclass
+class DuetRslRlBaseCfg:
+    num_arm_obs = 20 
+    num_arm_privileged_obs = 9
+    num_arm_actions = 8
+
+    num_dog_obs = 56
+    num_dog_privileged_obs = 2
+    num_dog_actions = 12
+
+    num_obs_history = 30
+
+@configclass
+class DuetArmRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):
+    class_name = str = 'ArmActorCritic'
+    num_obs: int = MISSING  
+    num_privileged_obs: int = MISSING
+    num_obs_history: int = MISSING
+    num_actions: int = MISSING
+
+@configclass
+class DuetDogRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):
+    class_name = str = 'DogActorCritic'
+    num_obs: int = MISSING
+    num_privileged_obs: int = MISSING
+    num_obs_history: int = MISSING
+    num_actions: int = MISSING
+
+@configclass
+class DuetRslRlPpoAlgorithmCfg(RslRlPpoAlgorithmCfg):
+    class_name: str = 'PPODuet'
+    # actor_critic :
+
+@configclass
+class DuetRslRlOnPolicyRunnerCfg(RslRlOnPolicyRunnerCfg):
+    arm_policy: DuetArmRslRlPpoActorCriticCfg = MISSING
+    dog_policy: DuetDogRslRlPpoActorCriticCfg = MISSING
+    algorithm: DuetRslRlPpoAlgorithmCfg = MISSING

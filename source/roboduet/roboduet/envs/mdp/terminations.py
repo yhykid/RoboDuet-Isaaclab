@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING
 from isaaclab.assets import Articulation
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.math  import euler_xyz_from_quat, wrap_to_pi
-from roboduet.envs.mdp import ParkourEvent
+from roboduet.envs.mdp import DuetEvent
  
 if TYPE_CHECKING:
-    from roboduet.envs import ParkourManagerBasedRLEnv
+    from roboduet.envs import DuetManagerBasedRLEnv
 
 def terminate_episode(
-    env: ParkourManagerBasedRLEnv,
+    env: DuetManagerBasedRLEnv,
     asset_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
 ):  
     reset_buf = torch.zeros((env.num_envs, ), dtype=torch.bool, device=env.device)
@@ -32,8 +32,8 @@ def terminate_episode(
     roll_cutoff = torch.abs(wrap_to_pi(roll)) > 1.5
     pitch_cutoff = torch.abs(wrap_to_pi(pitch)) > 1.5
     time_out_buf = env.episode_length_buf >= env.max_episode_length
-    parkour_event: ParkourEvent =  env.parkour_manager.get_term('base_parkour')    
-    reach_goal_cutoff = parkour_event.cur_goal_idx >= env.scene.terrain.cfg.terrain_generator.num_goals
+    duet_event: DuetEvent =  env.duet_manager.get_term('base_duet')    
+    reach_goal_cutoff = duet_event.cur_goal_idx >= env.scene.terrain.cfg.terrain_generator.num_goals
     height_cutoff = asset.data.root_state_w[:, 2] < -0.25
     time_out_buf |= reach_goal_cutoff
     reset_buf |= time_out_buf

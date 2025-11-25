@@ -7,12 +7,12 @@ import omni.kit.app
 from isaaclab.managers import RewardManager
 
 if TYPE_CHECKING:
-    from roboduet.envs import ParkourManagerBasedRLEnv
+    from roboduet.envs import DuetManagerBasedRLEnv
 
-class ParkourRewardManager(RewardManager):
-    _env: ParkourManagerBasedRLEnv
+class DuetRewardManager(RewardManager):
+    _env: DuetManagerBasedRLEnv
 
-    def __init__(self, cfg: object, env: ParkourManagerBasedRLEnv):
+    def __init__(self, cfg: object, env: DuetManagerBasedRLEnv):
         super().__init__(cfg, env)
 
     def compute(self, dt: float) -> torch.Tensor:
@@ -22,7 +22,7 @@ class ParkourRewardManager(RewardManager):
         # reset computation
         self._reward_buf[:] = 0.0
         # iterate over all the reward terms
-        for term_idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)):
+        for term_idx, (name, term_cfg) in enumerate(zip(self._term_names, self._term_cfgs)): # different from isaaclab
             # skip if weight is zero (kind of a micro-optimization)
             if term_cfg.weight == 0.0:
                 self._step_reward[:, term_idx] = 0.0
@@ -35,5 +35,5 @@ class ParkourRewardManager(RewardManager):
             self._episode_sums[name] += value
             # Update current reward for this step.
             self._step_reward[:, term_idx] = value / dt
-        self._reward_buf[:] = torch.clip(self._reward_buf[:], min=0.)
+        self._reward_buf[:] = torch.clip(self._reward_buf[:], min=0.) # different from isaaclab , disable negative reward
         return self._reward_buf

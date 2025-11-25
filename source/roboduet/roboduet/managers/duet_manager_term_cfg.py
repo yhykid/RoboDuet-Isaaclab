@@ -13,11 +13,11 @@ from isaaclab.utils import configclass
 # from isaaclab.managers.scene_entity_cfg import SceneEntityCfg
 
 if TYPE_CHECKING:
-    from .parkour_manager import ParkourTerm
+    from .duet_manager import DuetTerm
 
 @configclass
-class ParkourTermCfg:
+class DuetTermCfg:
 
-    class_type: type[ParkourTerm] = MISSING
+    class_type: type[DuetTerm] = MISSING
 
     debug_vis:bool = False 

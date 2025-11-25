@@ -1,13 +1,13 @@
 from rsl_rl.env import VecEnv
-from roboduet.envs import ParkourManagerBasedRLEnv
+from roboduet.envs import DuetManagerBasedRLEnv
 import gymnasium as gym
 import torch
 
-class ParkourRslRlVecEnvWrapper(VecEnv):
-    def __init__(self, env: ParkourManagerBasedRLEnv, clip_actions: float | None = None):
-        if not isinstance(env.unwrapped, ParkourManagerBasedRLEnv):
+class DuetRslRlVecEnvWrapper(VecEnv):
+    def __init__(self, env: DuetManagerBasedRLEnv, clip_actions: float | None = None):
+        if not isinstance(env.unwrapped, DuetManagerBasedRLEnv):
             raise ValueError(
-                "The environment must be inherited from ParkourManagerBasedRLEnv. Environment type:"
+                "The environment must be inherited from DuetManagerBasedRLEnv. Environment type:"
                 f" {type(env)}"
             )
         # initialize the wrapper
@@ -18,7 +18,7 @@ class ParkourRslRlVecEnvWrapper(VecEnv):
         self.num_envs = self.unwrapped.num_envs
         self.device = self.unwrapped.device
         self.max_episode_length = self.unwrapped.max_episode_length
-
+        
         # obtain dimensions of the environment
         if hasattr(self.unwrapped, "action_manager"):
             self.num_actions = self.unwrapped.action_manager.total_action_dim
@@ -84,7 +84,7 @@ class ParkourRslRlVecEnvWrapper(VecEnv):
         return cls.__name__
 
     @property
-    def unwrapped(self) -> ParkourManagerBasedRLEnv:
+    def unwrapped(self) -> DuetManagerBasedRLEnv:
         """Returns the base environment of the wrapper.
 
         This will be the bare :class:`gymnasium.Env` environment, underneath all layers of wrappers.

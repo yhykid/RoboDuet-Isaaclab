@@ -12,18 +12,18 @@ import omni.log
 from isaacsim.core.simulation_manager import SimulationManager
 from isaaclab.utils.timer import Timer
 from isaaclab.managers import ActionManager, ObservationManager, EventManager, RecorderManager
-from .parkour_manager_based_env_cfg import ParkourManagerBasedEnvCfg
-from roboduet.managers import ParkourManager
+from .duet_manager_based_env_cfg import DuetManagerBasedEnvCfg
+from roboduet.managers import DuetManager
 from isaaclab.envs import ManagerBasedEnv
 from isaaclab.scene import InteractiveScene
 from isaaclab.envs.common import VecEnvObs
 from isaaclab.sim import SimulationContext
 
-from roboduet.envs.parkour_viewprot_camera_contoller import ParkourViewportCameraController
+from roboduet.envs.duet_viewprot_camera_contoller import DuetViewportCameraController
 
-class ParkourManagerBasedEnv(ManagerBasedEnv):
-    def __init__(self, cfg: ParkourManagerBasedEnvCfg):
-        self.cfg: ParkourManagerBasedEnvCfg
+class DuetManagerBasedEnv(ManagerBasedEnv):
+    def __init__(self, cfg: DuetManagerBasedEnvCfg):
+        self.cfg: DuetManagerBasedEnvCfg
         cfg.validate()
         # store inputs to class
         self.cfg = cfg
@@ -84,7 +84,7 @@ class ParkourManagerBasedEnv(ManagerBasedEnv):
         # FIXME: This needs to be fixed in the future when we unify the UI functionalities even for
         # non-rendering modes.
         if self.sim.render_mode >= self.sim.RenderMode.PARTIAL_RENDERING:
-            self.viewport_camera_controller = ParkourViewportCameraController(self, self.cfg.viewer)
+            self.viewport_camera_controller = DuetViewportCameraController(self, self.cfg.viewer)
         else:
             self.viewport_camera_controller = None
 
@@ -136,9 +136,9 @@ class ParkourManagerBasedEnv(ManagerBasedEnv):
         # -- action manager
         self.action_manager = ActionManager(self.cfg.actions, self)
         print("[INFO] Action Manager: ", self.action_manager)
-        # -- parkour manager
-        self.parkour_manager = ParkourManager(self.cfg.parkours, self)
-        print("[INFO] Parkour Manager:", self.parkour_manager)
+        # -- manager
+        self.duet_manager = DuetManager(self.cfg.roboduet, self)
+        print("[INFO] Duet Manager:", self.duet_manager)
         # -- observation manager
         self.observation_manager = ObservationManager(self.cfg.observations, self)
         print("[INFO] Observation Manager:", self.observation_manager)
@@ -146,7 +146,7 @@ class ParkourManagerBasedEnv(ManagerBasedEnv):
         # perform events at the start of the simulation
         # in-case a child implementation creates other managers, the randomization should happen
         # when all the other managers are created
-        if self.__class__ == ParkourManagerBasedEnv and "startup" in self.event_manager.available_modes:
+        if self.__class__ == DuetManagerBasedEnv and "startup" in self.event_manager.available_modes:
             self.event_manager.apply(mode="startup")
 
     def reset(
@@ -194,8 +194,8 @@ class ParkourManagerBasedEnv(ManagerBasedEnv):
         # reset the internal buffers of the scene elements
         self.scene.reset(env_ids)
         self.extras["log"] = dict()
-        # -- parkour manager
-        info = self.parkour_manager.reset(env_ids)
+        # -- manager
+        info = self.duet_manager.reset(env_ids)
         self.extras["log"].update(info)
         # apply events such as randomization for environments that need a reset
         if "reset" in self.event_manager.available_modes:

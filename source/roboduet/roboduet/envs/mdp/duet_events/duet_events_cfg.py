@@ -6,8 +6,8 @@ from isaaclab.utils import configclass
 
 import isaaclab.sim as sim_utils
 
-from roboduet.managers import ParkourTermCfg
-from .parkour_event import ParkourEvent
+from roboduet.managers import DuetTermCfg
+from .duet_event import DuetEvent
 
 CURRENT_GOAL_MARKER_CFG = VisualizationMarkersCfg(
     markers = {
@@ -46,9 +46,9 @@ FUTURE_ARROWS_MARKER_CFG = VisualizationMarkersCfg(
 )
 
 @configclass
-class ParkourEventsCfg(ParkourTermCfg):
+class DuetEventsCfg(DuetTermCfg):
     
-    class_type: type = ParkourEvent
+    class_type: type = DuetEvent
 
     asset_name: str = MISSING
 
@@ -58,7 +58,7 @@ class ParkourEventsCfg(ParkourTermCfg):
 
     reach_goal_delay: float = 0.1
     next_goal_threshold: float = 0.2
-
+    # todo : modify the goal to ee goal
     future_goal_poses_visualizer_cfg: VisualizationMarkersCfg \
         = FUTURE_GOAL_MARKER_CFG.replace(prim_path="/Visuals/Command/future_goal_poses")
 

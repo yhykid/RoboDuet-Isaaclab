@@ -5,20 +5,20 @@ from isaaclab.utils import configclass
 # Pre-defined configs
 ##
 from roboduet.terrains.extreme_parkour.config.parkour import EXTREME_PARKOUR_TERRAINS_CFG  # isort: skip
-from roboduet.envs import ParkourManagerBasedRLEnvCfg
-from .parkour_mdp_cfg import * 
-from roboduet.default_cfg import ParkourDefaultSceneCfg, VIEWER
+from roboduet.envs import DuetManagerBasedRLEnvCfg
+from roboduet.envs.mdp.duet_mdp_cfg import * 
+from roboduet.default_cfg import DuetDefaultSceneCfg, VIEWER
 
 @configclass
-class ParkourTeacherSceneCfg(ParkourDefaultSceneCfg):
-    height_scanner = RayCasterCfg(
-        prim_path="{ENV_REGEX_NS}/Robot/base",
-        offset=RayCasterCfg.OffsetCfg(pos=(0.375, 0.0, 20.0)),
-        attach_yaw_only=True,
-        pattern_cfg=patterns.GridPatternCfg(resolution=0.15, size=[1.65, 1.5]),
-        debug_vis=False,
-        mesh_prim_paths=["/World/ground"],
-    )
+class DuetSceneCfg(DuetDefaultSceneCfg):
+    # height_scanner = RayCasterCfg(
+    #     prim_path="{ENV_REGEX_NS}/Robot/base",
+    #     offset=RayCasterCfg.OffsetCfg(pos=(0.375, 0.0, 20.0)),
+    #     attach_yaw_only=True,
+    #     pattern_cfg=patterns.GridPatternCfg(resolution=0.15, size=[1.65, 1.5]),
+    #     debug_vis=False,
+    #     mesh_prim_paths=["/World/ground"],
+    # )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", 
                                       history_length=2, 
                                       track_air_time=True, 
@@ -30,8 +30,8 @@ class ParkourTeacherSceneCfg(ParkourDefaultSceneCfg):
         self.terrain.terrain_generator = EXTREME_PARKOUR_TERRAINS_CFG
         
 @configclass
-class UnitreeGo2TeacherParkourEnvCfg(ParkourManagerBasedRLEnvCfg):
-    scene: ParkourTeacherSceneCfg = ParkourTeacherSceneCfg(num_envs=6144, env_spacing=1.)
+class DuetGo2EnvCfg(DuetManagerBasedRLEnvCfg):
+    scene: DuetSceneCfg = DuetSceneCfg(num_envs=100, env_spacing=1.)
     # Basic settings
     observations: TeacherObservationsCfg = TeacherObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
@@ -39,7 +39,7 @@ class UnitreeGo2TeacherParkourEnvCfg(ParkourManagerBasedRLEnvCfg):
     # MDP settings
     rewards: TeacherRewardsCfg = TeacherRewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
-    parkours: ParkourEventsCfg = ParkourEventsCfg()
+    roboduet: DuetEventsCfg = DuetEventsCfg()
     events: EventCfg = EventCfg()
 
     def __post_init__(self):
@@ -53,7 +53,7 @@ class UnitreeGo2TeacherParkourEnvCfg(ParkourManagerBasedRLEnvCfg):
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**18
         # update sensor update periods
-        self.scene.height_scanner.update_period = self.sim.dt * self.decimation
+        # self.scene.height_scanner.update_period = self.sim.dt * self.decimation
         self.scene.contact_forces.update_period = self.sim.dt * self.decimation
         self.scene.terrain.terrain_generator.curriculum = True
         self.actions.joint_pos.use_delay = False
@@ -61,7 +61,7 @@ class UnitreeGo2TeacherParkourEnvCfg(ParkourManagerBasedRLEnvCfg):
         self.events.random_camera_position = None
 
 @configclass
-class UnitreeGo2TeacherParkourEnvCfg_EVAL(UnitreeGo2TeacherParkourEnvCfg):
+class DuetGo2EnvCfg_EVAL(DuetGo2EnvCfg):
     viewer = VIEWER 
 
     def __post_init__(self):
@@ -87,7 +87,7 @@ class UnitreeGo2TeacherParkourEnvCfg_EVAL(UnitreeGo2TeacherParkourEnvCfg):
                 sub_terrain.proportion = 0.25
                 
 @configclass
-class UnitreeGo2TeacherParkourEnvCfg_PLAY(UnitreeGo2TeacherParkourEnvCfg_EVAL):
+class DuetGo2EnvCfg_PLAY(DuetGo2EnvCfg_EVAL):
     viewer = VIEWER 
 
     def __post_init__(self):

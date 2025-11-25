@@ -9,18 +9,18 @@ from typing import TYPE_CHECKING
 import omni.kit.app
 
 from isaaclab.managers.command_manager import CommandTerm, CommandManager
-from .parkour_manager_term_cfg import ParkourTermCfg
+from .duet_manager_term_cfg import DuetTermCfg
 
 if TYPE_CHECKING:
-    from roboduet.envs import ParkourManagerBasedRLEnv
+    from roboduet.envs import DuetManagerBasedRLEnv
 
 """
-Parkour Manager is dealing with goal heading position
+Duet Manager is dealing with goal heading position
 It is similar to a CommandMangner which is a handling Position Command
 """
 
-class ParkourTerm(CommandTerm):
-    def __init__(self, cfg: ParkourTermCfg, env: ParkourManagerBasedRLEnv):
+class DuetTerm(CommandTerm):
+    def __init__(self, cfg: DuetTermCfg, env: DuetManagerBasedRLEnv):
         super().__init__(cfg, env) 
 
     def reset(self, env_ids: Sequence[int] | None = None) -> dict[str, float]:
@@ -61,9 +61,9 @@ class ParkourTerm(CommandTerm):
 
 
     
-class ParkourManager(CommandManager):
-    _env: ParkourManagerBasedRLEnv
-    def __init__(self, cfg: object, env: ParkourManagerBasedRLEnv):        
+class DuetManager(CommandManager):
+    _env: DuetManagerBasedRLEnv
+    def __init__(self, cfg: object, env: DuetManagerBasedRLEnv):        
         super().__init__(cfg, env) 
 
     def __call__(self):
@@ -91,16 +91,16 @@ class ParkourManager(CommandManager):
             if term_cfg is None:
                 continue
             # check for valid config type
-            if not isinstance(term_cfg, ParkourTermCfg):
+            if not isinstance(term_cfg, DuetTermCfg):
                 raise TypeError(
-                    f"Configuration for the term '{term_name}' is not of type ParkourTermCfg."
+                    f"Configuration for the term '{term_name}' is not of type DuetTermCfg."
                     f" Received: '{type(term_cfg)}'."
                 )
             # create the action term
             term = term_cfg.class_type(term_cfg, self._env)
             # sanity check if term is valid type
-            if not isinstance(term, ParkourTerm):
-                raise TypeError(f"Returned object for the term '{term_name}' is not of type ParkourType.")
+            if not isinstance(term, DuetTerm):
+                raise TypeError(f"Returned object for the term '{term_name}' is not of type DuetType.")
             # add class to dict
             self._terms[term_name] = term
 

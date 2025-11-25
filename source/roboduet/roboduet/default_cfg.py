@@ -12,6 +12,7 @@ from isaaclab.sensors.ray_caster.patterns import PinholeCameraPatternCfg
 from isaaclab.envs import ViewerCfg
 import os, torch 
 from roboduet.actuators.parkour_actuator_cfg import ParkourDCMotorCfg
+from roboduet.assets.go2.arx5go2 import ARX5_GO2_CFG 
 
 def quat_from_euler_xyz_tuple(roll: torch.Tensor, pitch: torch.Tensor, yaw: torch.Tensor) -> tuple:
     cy = torch.cos(yaw * 0.5)
@@ -29,8 +30,8 @@ def quat_from_euler_xyz_tuple(roll: torch.Tensor, pitch: torch.Tensor, yaw: torc
     return tuple(convert.numpy().tolist())
 
 @configclass
-class ParkourDefaultSceneCfg(InteractiveSceneCfg):
-    robot: ArticulationCfg = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot")
+class DuetDefaultSceneCfg(InteractiveSceneCfg):
+    robot: ArticulationCfg = ARX5_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Robot") 
     
     sky_light = AssetBaseCfg(
         prim_path="/World/skyLight",
@@ -62,27 +63,8 @@ class ParkourDefaultSceneCfg(InteractiveSceneCfg):
     )
     def __post_init__(self):
         self.robot.spawn.articulation_props.enabled_self_collisions = True
-        self.robot.actuators['base_legs'] = ParkourDCMotorCfg(
-            joint_names_expr=[".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"],
-            effort_limit={
-                        '.*_hip_joint':35.0,
-                        '.*_thigh_joint':40.0,
-                        '.*_calf_joint':40.0,
-                        },
-            saturation_effort={
-                        '.*_hip_joint':35.0,
-                        '.*_thigh_joint':45.0,
-                        '.*_calf_joint':45.0,
-                        },
-            velocity_limit={
-                        '.*_hip_joint':52.4,
-                        '.*_thigh_joint':30.1,
-                        '.*_calf_joint':30.1,
-                        },
-            stiffness=40.0,
-            damping=1.0,
-            friction=0.0,
-        )
+        self.robot.spawn.joint_drive.gains.stiffness = None
+        
 
 ## we are now using a raycaster based camera, not a pinhole camera. see tail issue https://github.com/isaac-sim/IsaacLab/issues/719
 CAMERA_CFG = RayCasterCameraCfg( 

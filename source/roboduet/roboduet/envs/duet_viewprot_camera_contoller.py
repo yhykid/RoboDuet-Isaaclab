@@ -11,16 +11,16 @@ import carb
 from isaaclab.envs.ui import ViewportCameraController 
 
 if TYPE_CHECKING:
-    from roboduet.envs import  ParkourManagerBasedEnv
+    from roboduet.envs import  DuetManagerBasedEnv
     from isaaclab.envs import ViewerCfg
 
-class ParkourViewportCameraController(ViewportCameraController):
+class DuetViewportCameraController(ViewportCameraController):
     """
     Viewport Camera Controller with Keyboard 
     reference: 
         https://docs.omniverse.nvidia.com/dev-guide/latest/programmer_ref/input-devices/keyboard.html
     """
-    def __init__(self, env: ParkourManagerBasedEnv, cfg: ViewerCfg):
+    def __init__(self, env: DuetManagerBasedEnv, cfg: ViewerCfg):
         self._env = env
         self._cfg = copy.deepcopy(cfg)
         # cast viewer eye and look-at to numpy arrays
