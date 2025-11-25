@@ -6,58 +6,90 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import omni.log
-from isaaclab.envs.mdp.actions.joint_actions import JointPositionAction
+from isaaclab.envs.mdp.actions import JointAction
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
-    from .actions_cfg import DelayedJointPositionActionCfg
+    from .actions_cfg import MixedPDArmMultiLegJointPositionActionCfg
 
-class DelayedJointPositionAction(JointPositionAction):
+class MixedPDArmMultiLegJointPositionAction(JointAction):
     """Joint action term that applies the processed actions to the articulation's joints as position commands."""
 
-    cfg: DelayedJointPositionActionCfg
+    cfg: MixedPDArmMultiLegJointPositionActionCfg
     """The configuration of the action term."""
 
-    def __init__(self, cfg: DelayedJointPositionActionCfg, env: ManagerBasedEnv):
+    def __init__(
+        self,
+        cfg: MixedPDArmMultiLegJointPositionActionCfg,
+        env: ManagerBasedEnv,
+    ):
         # initialize the action term
         super().__init__(cfg, env)
         # use default joint positions as offset
         if cfg.use_default_offset:
-            self._offset = self._asset.data.default_joint_pos[:, self._joint_ids].clone()
-        self._action_history_buf = torch.zeros(self.num_envs, cfg.history_length, self._num_joints, device=self.device, dtype=torch.float)
-        self._delay_update_global_steps = cfg.delay_update_global_steps
-        self._action_delay_steps = cfg.action_delay_steps
-        self._use_delay = cfg.use_delay
-        self.env = env 
+            self._offset = self._asset.data.default_joint_pos[
+                :, self._joint_ids
+            ].clone()
+
+        # setup the arm command buffer
+        self._arm_joint_ids, self._arm_joint_names = self._asset.find_joints(
+            self.cfg.arm_joint_names
+        )
+
+        self._leg_joint_ids, self._leg_joint_names = self._asset.find_joints(
+            self.cfg.leg_joint_names
+        )
+        self._arm_raw_actions = torch.zeros(
+            self.num_envs, len(self._arm_joint_ids), device=self.device
+        )
+        self._arm_processed_actions = torch.zeros_like(self.arm_raw_actions)
+
+        self._leg_raw_actions = torch.zeros(
+            self.num_envs, len(self._leg_joint_ids), device=self.device
+        )
+        self._leg_processed_actions = torch.zeros_like(self._leg_raw_actions)
+
 
     def apply_actions(self):
-        # set position targets
-        self._asset.set_joint_position_target(self.processed_actions, joint_ids=self._joint_ids)
+        """Apply the actions."""
+        self._asset.set_joint_effort_target(
+            self._leg_processed_actions, joint_ids=self._leg_joint_ids
+        )
+        self._asset.set_joint_position_target(
+            self.arm_processed_actions, joint_ids=self._arm_joint_ids
+        )
 
     def process_actions(self, actions: torch.Tensor):
+        """Process the actions."""
+        #todo 
         # store the raw actions
-        if self.env.common_step_counter % self._delay_update_global_steps == 0:
-            if len(self._action_delay_steps) != 0:
-                self.delay = torch.tensor(self._action_delay_steps.pop(0), device=self.device, dtype=torch.float)
-        self._action_history_buf = torch.cat([self._action_history_buf[:, 1:].clone(), actions[:, None, :].clone()], dim=1)
-        indices = -1 - self.delay 
-        if self._use_delay:
-            self._raw_actions[:] = self._action_history_buf[:, indices.long()]
-        else:
-            self._raw_actions[:] = actions
+        self._raw_actions[:] = actions
         # apply the affine transformations
-
-        if self.cfg.clip is not None:
-            self._raw_actions = torch.clamp(
-                self._raw_actions, min=self._clip[:, :, 0], max=self._clip[:, :, 1]
-            )
         self._processed_actions = self._raw_actions * self._scale + self._offset
-        # clip actions
+        # store the non-command leg actions
 
-    def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        self._raw_actions[env_ids] = 0.0
-        self._action_history_buf[env_ids, :, :] = 0.
+        # store the raw arm actions, which is the target joint pos
+        self._arm_raw_actions[:] = self.command.arm_joint_sub_goal
+        self._arm_processed_actions[:] = self._arm_raw_actions.clone()
+
+        self._leg_processed_actions[:] = self._leg_raw_actions.clone()
 
     @property
-    def action_history_buf(self):
-        return self._action_history_buf
+    def arm_raw_actions(self) -> torch.Tensor:
+        """Get the raw arm actions."""
+        return self._arm_raw_actions
+
+    @property
+    def arm_processed_actions(self) -> torch.Tensor:
+        """Get the processed arm actions."""
+        return self._arm_processed_actions
+
+    @property
+    def leg_raw_actions(self) -> torch.Tensor:
+        """Get the raw leg actions."""
+        return self._leg_raw_actions
+
+    @property
+    def leg_processed_actions(self) -> torch.Tensor:
+        """Get the processed leg actions."""
+        return self._leg_processed_actions
