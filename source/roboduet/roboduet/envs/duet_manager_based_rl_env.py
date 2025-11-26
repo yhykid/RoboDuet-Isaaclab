@@ -254,9 +254,11 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
         # reset the internal buffers of the scene elements
         self.scene.reset(env_ids)
         self.extras["log"] = dict()
+        
         # --  manager
-        info = self.duet.reset(env_ids)
-        self.extras["log"].update(info)
+        # info = self.duet.reset(env_ids)
+        # self.extras["log"].update(info)
+
         # apply events such as randomizations for environments that need a reset
         if "reset" in self.event_manager.available_modes:
             env_step_count = self._sim_step_counter // self.cfg.decimation

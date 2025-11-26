@@ -16,46 +16,46 @@ if TYPE_CHECKING:
 import cv2
 import numpy as np 
 
-class reward_feet_edge(ManagerTermBase):
-    def __init__(self, cfg: RewardTermCfg, env: DuetManagerBasedRLEnv):
-        super().__init__(cfg, env)
-        self.contact_sensor: ContactSensor = env.scene.sensors[cfg.params["sensor_cfg"].name]
-        self.asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
-        self.sensor_cfg = cfg.params["sensor_cfg"]
-        self.asset_cfg = cfg.params["asset_cfg"]
-        self.roboduet_event: DuetEvent =  env.duet_manager.get_term(cfg.params["duet_name"])
-        self.body_id = self.contact_sensor.find_bodies('base')[0]
-        self.horizontal_scale = env.scene.terrain.cfg.terrain_generator.horizontal_scale
-        size_x, size_y = env.scene.terrain.cfg.terrain_generator.size
-        self.rows_offset = (size_x * env.scene.terrain.cfg.terrain_generator.num_rows/2)
-        self.cols_offset = (size_y * env.scene.terrain.cfg.terrain_generator.num_cols/2)
-        total_x_edge_maskes = torch.from_numpy(self.roboduet_event.terrain.terrain_generator_class.x_edge_maskes).to(device = self.device)
-        self.x_edge_masks_tensor = total_x_edge_maskes.permute(0, 2, 1, 3).reshape(
-            env.scene.terrain.terrain_generator_class.total_width_pixels, env.scene.terrain.terrain_generator_class.total_length_pixels
-        )
+# class reward_feet_edge(ManagerTermBase):
+#     def __init__(self, cfg: RewardTermCfg, env: DuetManagerBasedRLEnv):
+#         super().__init__(cfg, env)
+#         self.contact_sensor: ContactSensor = env.scene.sensors[cfg.params["sensor_cfg"].name]
+#         self.asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
+#         self.sensor_cfg = cfg.params["sensor_cfg"]
+#         self.asset_cfg = cfg.params["asset_cfg"]
+#         self.roboduet_event: DuetEvent =  env.duet_manager.get_term(cfg.params["duet_name"])
+#         self.body_id = self.contact_sensor.find_bodies('base')[0]
+#         self.horizontal_scale = env.scene.terrain.cfg.terrain_generator.horizontal_scale
+#         size_x, size_y = env.scene.terrain.cfg.terrain_generator.size
+#         self.rows_offset = (size_x * env.scene.terrain.cfg.terrain_generator.num_rows/2)
+#         self.cols_offset = (size_y * env.scene.terrain.cfg.terrain_generator.num_cols/2)
+#         total_x_edge_maskes = torch.from_numpy(self.roboduet_event.terrain.terrain_generator_class.x_edge_maskes).to(device = self.device)
+#         self.x_edge_masks_tensor = total_x_edge_maskes.permute(0, 2, 1, 3).reshape(
+#             env.scene.terrain.terrain_generator_class.total_width_pixels, env.scene.terrain.terrain_generator_class.total_length_pixels
+#         )
 
-    def __call__(
-        self,
-        env: DuetManagerBasedRLEnv,        
-        asset_cfg: SceneEntityCfg,
-        sensor_cfg: SceneEntityCfg,
-        duet_name: str,
-        ) -> torch.Tensor:
-        feet_pos_x = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,0] + self.rows_offset)
-                      /self.horizontal_scale).round().long() 
-        feet_pos_y = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,1] + self.cols_offset)
-                      /self.horizontal_scale).round().long() 
-        feet_pos_x = torch.clip(feet_pos_x, 0, self.x_edge_masks_tensor.shape[0]-1)
-        feet_pos_y = torch.clip(feet_pos_y, 0, self.x_edge_masks_tensor.shape[1]-1)
-        feet_at_edge = self.x_edge_masks_tensor[feet_pos_x, feet_pos_y]
-        contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids] #(N, 4, 3)
-        previous_contact_forces = self.contact_sensor.data.net_forces_w_history[:, -1, self.sensor_cfg.body_ids] # N, 4, 3
-        contact = torch.norm(contact_forces, dim=-1) > 2.
-        last_contacts = torch.norm(previous_contact_forces, dim=-1) > 2.
-        contact_filt = torch.logical_or(contact, last_contacts) 
-        self.feet_at_edge = contact_filt & feet_at_edge
-        rew = (self.roboduet_event.terrain.terrain_levels > 3) * torch.sum(self.feet_at_edge, dim=-1)
-        return rew
+#     def __call__(
+#         self,
+#         env: DuetManagerBasedRLEnv,        
+#         asset_cfg: SceneEntityCfg,
+#         sensor_cfg: SceneEntityCfg,
+#         duet_name: str,
+#         ) -> torch.Tensor:
+#         feet_pos_x = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,0] + self.rows_offset)
+#                       /self.horizontal_scale).round().long() 
+#         feet_pos_y = ((self.asset.data.body_state_w[:, self.asset_cfg.body_ids ,1] + self.cols_offset)
+#                       /self.horizontal_scale).round().long() 
+#         feet_pos_x = torch.clip(feet_pos_x, 0, self.x_edge_masks_tensor.shape[0]-1)
+#         feet_pos_y = torch.clip(feet_pos_y, 0, self.x_edge_masks_tensor.shape[1]-1)
+#         feet_at_edge = self.x_edge_masks_tensor[feet_pos_x, feet_pos_y]
+#         contact_forces = self.contact_sensor.data.net_forces_w_history[:, 0, self.sensor_cfg.body_ids] #(N, 4, 3)
+#         previous_contact_forces = self.contact_sensor.data.net_forces_w_history[:, -1, self.sensor_cfg.body_ids] # N, 4, 3
+#         contact = torch.norm(contact_forces, dim=-1) > 2.
+#         last_contacts = torch.norm(previous_contact_forces, dim=-1) > 2.
+#         contact_filt = torch.logical_or(contact, last_contacts) 
+#         self.feet_at_edge = contact_filt & feet_at_edge
+#         rew = (self.roboduet_event.terrain.terrain_levels > 3) * torch.sum(self.feet_at_edge, dim=-1)
+#         return rew
 
 def reward_torques(
     env: DuetManagerBasedRLEnv,        

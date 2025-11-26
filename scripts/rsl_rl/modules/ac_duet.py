@@ -6,26 +6,6 @@ from torch.distributions import Normal
 from .feature_extractors.state_encoder import *
 from rsl_rl.utils import resolve_nn_activation
 
-from params_proto import PrefixProto
-
-class ArmAC_Args(PrefixProto, cli=False):
-    # policy
-    init_noise_std = 0.1
-    actor_hidden_dims = [512, 256, 128]
-    critic_hidden_dims = [512, 256, 128]
-    activation = 'elu'  # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
-    adaptation_module_branch_hidden_dims = [256, 128]
-    use_decoder = False
-
-class DogAC_Args(PrefixProto, cli=False):
-    # policy
-    init_noise_std = 1.0
-    actor_hidden_dims = [512, 256, 128]
-    critic_hidden_dims = [512, 256, 128]
-    activation = 'elu'  # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
-    adaptation_module_branch_hidden_dims = [256, 128]
-    use_decoder = False
-
 class ArmActorCritic(nn.Module):
     is_recurrent = False
 
@@ -38,71 +18,71 @@ class ArmActorCritic(nn.Module):
         if kwargs:
             print("ArmActorCritic.__init__ got unexpected arguments, which will be ignored: " + str(
                 [key for key in kwargs.keys()]))
-        self.decoder = ArmAC_Args.use_decoder
+        self.decoder = kwargs["use_decoder"]
         super().__init__()
 
         self.num_obs = num_obs
         self.num_obs_history = num_obs_history
         self.num_privileged_obs = num_privileged_obs
 
-        activation = resolve_nn_activation(ArmAC_Args.activation)
+        activation = resolve_nn_activation(kwargs["activation"])
 
         # Adaptation module
         adaptation_module_layers = []
-        adaptation_module_layers.append(nn.Linear(self.num_obs_history, ArmAC_Args.adaptation_module_branch_hidden_dims[0]))
+        adaptation_module_layers.append(nn.Linear(self.num_obs_history, kwargs["adaptation_module_branch_hidden_dims"][0]))
         adaptation_module_layers.append(activation)
-        for l in range(len(ArmAC_Args.adaptation_module_branch_hidden_dims)):
-            if l == len(ArmAC_Args.adaptation_module_branch_hidden_dims) - 1:
+        for l in range(len(kwargs["adaptation_module_branch_hidden_dims"])):
+            if l == len(kwargs["adaptation_module_branch_hidden_dims"]) - 1:
                 adaptation_module_layers.append(
-                    nn.Linear(ArmAC_Args.adaptation_module_branch_hidden_dims[l], self.num_privileged_obs))
+                    nn.Linear(kwargs["adaptation_module_branch_hidden_dims"][l], self.num_privileged_obs))
             else:
                 adaptation_module_layers.append(
-                    nn.Linear(ArmAC_Args.adaptation_module_branch_hidden_dims[l],
-                              ArmAC_Args.adaptation_module_branch_hidden_dims[l + 1]))
+                    nn.Linear(kwargs["adaptation_module_branch_hidden_dims"][l],
+                              kwargs["adaptation_module_branch_hidden_dims"][l + 1]))
                 adaptation_module_layers.append(activation)
 
         self.adaptation_module = nn.Sequential(*adaptation_module_layers)
 
 
         self.actor_history_encoder = nn.Sequential(
-            nn.Linear(self.num_obs_history - self.num_obs, ArmAC_Args.actor_hidden_dims[0]),
+            nn.Linear(self.num_obs_history - self.num_obs, kwargs["actor_hidden_dims"][0]),
             activation,
-            nn.Linear(ArmAC_Args.actor_hidden_dims[0], ArmAC_Args.actor_hidden_dims[1]),
+            nn.Linear(kwargs["actor_hidden_dims"][0], kwargs["actor_hidden_dims"][1]),
             activation,
-            nn.Linear(ArmAC_Args.actor_hidden_dims[1], ArmAC_Args.actor_hidden_dims[2]),
+            nn.Linear(kwargs["actor_hidden_dims"][1], kwargs["actor_hidden_dims"][2]),
         )
 
         # Policy
         actor_layers = []
-        actor_layers.append(nn.Linear(self.num_obs + self.num_privileged_obs + ArmAC_Args.actor_hidden_dims[2], ArmAC_Args.actor_hidden_dims[0]))
+        actor_layers.append(nn.Linear(self.num_obs + self.num_privileged_obs + kwargs["actor_hidden_dims"][2], kwargs["actor_hidden_dims"][0]))
         actor_layers.append(activation)
-        for l in range(len(ArmAC_Args.actor_hidden_dims)):
-            if l == len(ArmAC_Args.actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(ArmAC_Args.actor_hidden_dims[l], num_actions))
+        for l in range(len(kwargs["actor_hidden_dims"])):
+            if l == len(kwargs["actor_hidden_dims"]) - 1:
+                actor_layers.append(nn.Linear(kwargs["actor_hidden_dims"][l], num_actions))
             else:
-                actor_layers.append(nn.Linear(ArmAC_Args.actor_hidden_dims[l], ArmAC_Args.actor_hidden_dims[l + 1]))
+                actor_layers.append(nn.Linear(kwargs["actor_hidden_dims"][l], kwargs["actor_hidden_dims"][l + 1]))
                 actor_layers.append(activation)
         self.actor_body = nn.Sequential(*actor_layers)
 
 
         
         self.critic_history_encoder = nn.Sequential(
-            nn.Linear(self.num_obs_history - self.num_obs, ArmAC_Args.critic_hidden_dims[0]),
+            nn.Linear(self.num_obs_history - self.num_obs, kwargs["critic_hidden_dims"][0]),
             activation,
-            nn.Linear(ArmAC_Args.critic_hidden_dims[0], ArmAC_Args.critic_hidden_dims[1]),
+            nn.Linear(kwargs["critic_hidden_dims"][0], kwargs["critic_hidden_dims"][1]),
             activation,
-            nn.Linear(ArmAC_Args.critic_hidden_dims[1], ArmAC_Args.critic_hidden_dims[2]),
+            nn.Linear(kwargs["critic_hidden_dims"][1], kwargs["critic_hidden_dims"][2]),
         )
 
         # Value function
         critic_layers = []
-        critic_layers.append(nn.Linear(self.num_obs + self.num_privileged_obs + ArmAC_Args.critic_hidden_dims[2], ArmAC_Args.critic_hidden_dims[0]))
+        critic_layers.append(nn.Linear(self.num_obs + self.num_privileged_obs + kwargs["critic_hidden_dims"][2], kwargs["critic_hidden_dims"][0]))
         critic_layers.append(activation)
-        for l in range(len(ArmAC_Args.critic_hidden_dims)):
-            if l == len(ArmAC_Args.critic_hidden_dims) - 1:
-                critic_layers.append(nn.Linear(ArmAC_Args.critic_hidden_dims[l], 1))
+        for l in range(len(kwargs["critic_hidden_dims"])):
+            if l == len(kwargs["critic_hidden_dims"]) - 1:
+                critic_layers.append(nn.Linear(kwargs["critic_hidden_dims"][l], 1))
             else:
-                critic_layers.append(nn.Linear(ArmAC_Args.critic_hidden_dims[l], ArmAC_Args.critic_hidden_dims[l + 1]))
+                critic_layers.append(nn.Linear(kwargs["critic_hidden_dims"][l], kwargs["critic_hidden_dims"][l + 1]))
                 critic_layers.append(activation)
         self.critic_body = nn.Sequential(*critic_layers)
 
@@ -111,7 +91,7 @@ class ArmActorCritic(nn.Module):
         print(f"Arm Critic MLP: {self.critic_body}")
 
         # Action noise
-        self.std = nn.Parameter(ArmAC_Args.init_noise_std * torch.ones(num_actions))
+        self.std = nn.Parameter(kwargs["init_noise_std"] * torch.ones(num_actions))
 
         self.distribution = None
         # disable args validation for speedup
@@ -202,51 +182,51 @@ class DogActorCritic(nn.Module):
         if kwargs:
             print("DogActorCritic.__init__ got unexpected arguments, which will be ignored: " + str(
                 [key for key in kwargs.keys()]))
-        self.decoder = DogAC_Args.use_decoder
+        self.decoder = kwargs["use_decoder"]
         super().__init__()
 
         self.num_obs_history = num_obs_history
         self.num_privileged_obs = num_privileged_obs
 
-        activation = resolve_nn_activation(DogAC_Args.activation)
+        activation = resolve_nn_activation(kwargs["activation"])
 
         # Adaptation module
         adaptation_module_layers = []
-        adaptation_module_layers.append(nn.Linear(self.num_obs_history, DogAC_Args.adaptation_module_branch_hidden_dims[0]))
+        adaptation_module_layers.append(nn.Linear(self.num_obs_history, kwargs["adaptation_module_branch_hidden_dims"][0]))
         adaptation_module_layers.append(activation)
-        for l in range(len(DogAC_Args.adaptation_module_branch_hidden_dims)):
-            if l == len(DogAC_Args.adaptation_module_branch_hidden_dims) - 1:
+        for l in range(len(kwargs["adaptation_module_branch_hidden_dims"])):
+            if l == len(kwargs["adaptation_module_branch_hidden_dims"]) - 1:
                 adaptation_module_layers.append(
-                    nn.Linear(DogAC_Args.adaptation_module_branch_hidden_dims[l], self.num_privileged_obs))
+                    nn.Linear(kwargs["adaptation_module_branch_hidden_dims"][l], self.num_privileged_obs))
             else:
                 adaptation_module_layers.append(
-                    nn.Linear(DogAC_Args.adaptation_module_branch_hidden_dims[l],
-                              DogAC_Args.adaptation_module_branch_hidden_dims[l + 1]))
+                    nn.Linear(kwargs["adaptation_module_branch_hidden_dims"][l],
+                              kwargs["adaptation_module_branch_hidden_dims"][l + 1]))
                 adaptation_module_layers.append(activation)
         self.adaptation_module = nn.Sequential(*adaptation_module_layers)
 
 
         # Policy
         actor_layers = []
-        actor_layers.append(nn.Linear(self.num_privileged_obs + self.num_obs_history, DogAC_Args.actor_hidden_dims[0]))
+        actor_layers.append(nn.Linear(self.num_privileged_obs + self.num_obs_history, kwargs["actor_hidden_dims"][0]))
         actor_layers.append(activation)
-        for l in range(len(DogAC_Args.actor_hidden_dims)):
-            if l == len(DogAC_Args.actor_hidden_dims) - 1:
-                actor_layers.append(nn.Linear(DogAC_Args.actor_hidden_dims[l], num_actions))
+        for l in range(len(kwargs["actor_hidden_dims"])):
+            if l == len(kwargs["actor_hidden_dims"]) - 1:
+                actor_layers.append(nn.Linear(kwargs["actor_hidden_dims"][l], num_actions))
             else:
-                actor_layers.append(nn.Linear(DogAC_Args.actor_hidden_dims[l], DogAC_Args.actor_hidden_dims[l + 1]))
+                actor_layers.append(nn.Linear(kwargs["actor_hidden_dims"][l], kwargs["actor_hidden_dims"][l + 1]))
                 actor_layers.append(activation)
         self.actor_body = nn.Sequential(*actor_layers)
 
         # Value function
         critic_layers = []
-        critic_layers.append(nn.Linear(self.num_privileged_obs + self.num_obs_history, DogAC_Args.critic_hidden_dims[0]))
+        critic_layers.append(nn.Linear(self.num_privileged_obs + self.num_obs_history, kwargs["critic_hidden_dims"][0]))
         critic_layers.append(activation)
-        for l in range(len(DogAC_Args.critic_hidden_dims)):
-            if l == len(DogAC_Args.critic_hidden_dims) - 1:
-                critic_layers.append(nn.Linear(DogAC_Args.critic_hidden_dims[l], 1))
+        for l in range(len(kwargs["critic_hidden_dims"])):
+            if l == len(kwargs["critic_hidden_dims"]) - 1:
+                critic_layers.append(nn.Linear(kwargs["critic_hidden_dims"][l], 1))
             else:
-                critic_layers.append(nn.Linear(DogAC_Args.critic_hidden_dims[l], DogAC_Args.critic_hidden_dims[l + 1]))
+                critic_layers.append(nn.Linear(kwargs["critic_hidden_dims"][l], kwargs["critic_hidden_dims"][l + 1]))
                 critic_layers.append(activation)
         self.critic_body = nn.Sequential(*critic_layers)
 
@@ -255,7 +235,7 @@ class DogActorCritic(nn.Module):
         print(f"Dog Critic MLP: {self.critic_body}")
 
         # Action noise
-        self.std = nn.Parameter(DogAC_Args.init_noise_std * torch.ones(num_actions))
+        self.std = nn.Parameter(kwargs["init_noise_std"] * torch.ones(num_actions))
         self.distribution = None
         # disable args validation for speedup
         Normal.set_default_validate_args = False

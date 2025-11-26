@@ -11,14 +11,6 @@ from roboduet.default_cfg import DuetDefaultSceneCfg, VIEWER
 
 @configclass
 class DuetSceneCfg(DuetDefaultSceneCfg):
-    # height_scanner = RayCasterCfg(
-    #     prim_path="{ENV_REGEX_NS}/Robot/base",
-    #     offset=RayCasterCfg.OffsetCfg(pos=(0.375, 0.0, 20.0)),
-    #     attach_yaw_only=True,
-    #     pattern_cfg=patterns.GridPatternCfg(resolution=0.15, size=[1.65, 1.5]),
-    #     debug_vis=False,
-    #     mesh_prim_paths=["/World/ground"],
-    # )
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", 
                                       history_length=2, 
                                       track_air_time=True, 
@@ -37,7 +29,7 @@ class DuetGo2EnvCfg(DuetManagerBasedRLEnvCfg):
     actions: ActionsCfg = ActionsCfg()
     commands: CommandsCfg = CommandsCfg()
     # MDP settings
-    rewards: TeacherRewardsCfg = TeacherRewardsCfg()
+    rewards: DuetRewardsCfg = DuetRewardsCfg()
     terminations: TerminationsCfg = TerminationsCfg()
     roboduet: DuetEventsCfg = DuetEventsCfg()
     events: EventCfg = EventCfg()

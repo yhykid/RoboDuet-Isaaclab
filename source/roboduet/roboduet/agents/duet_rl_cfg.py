@@ -102,6 +102,13 @@ class DuetArmRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):
     num_privileged_obs: int = MISSING
     num_obs_history: int = MISSING
     num_actions: int = MISSING
+    init_noise_std: float = MISSING
+    actor_hidden_dims: list[int] = MISSING
+    critic_hidden_dims: list[int] = MISSING
+    activation: str = MISSING
+    adaptation_module_branch_hidden_dims: list[int] = MISSING
+    use_decoder: bool = MISSING
+  
 
 @configclass
 class DuetDogRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):
@@ -110,11 +117,32 @@ class DuetDogRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):
     num_privileged_obs: int = MISSING
     num_obs_history: int = MISSING
     num_actions: int = MISSING
+    init_noise_std: float = MISSING
+    actor_hidden_dims: list[int] = MISSING
+    critic_hidden_dims: list[int] = MISSING
+    activation: str = MISSING
+    adaptation_module_branch_hidden_dims: list[int] = MISSING
+    use_decoder: bool = MISSING
 
 @configclass
 class DuetRslRlPpoAlgorithmCfg(RslRlPpoAlgorithmCfg):
     class_name: str = 'PPODuet'
-    # actor_critic :
+    value_loss_coef: float = MISSING
+    use_clipped_value_loss: bool = MISSING
+    clip_param: float = MISSING
+    entropy_coef: float = MISSING
+    desired_kl: float = MISSING
+    num_learning_epochs: int = MISSING
+    num_mini_batches: int = MISSING
+    learning_rate: float = MISSING
+    schedule: str = MISSING
+    gamma: float = MISSING
+    lam: float =MISSING
+    max_grad_norm: float = MISSING
+    adaptation_module_learning_rate: float = MISSING
+    num_adaptation_module_substeps: int = MISSING
+    selective_adaptation_module_loss: bool = MISSING
+    
 
 @configclass
 class DuetRslRlOnPolicyRunnerCfg(RslRlOnPolicyRunnerCfg):

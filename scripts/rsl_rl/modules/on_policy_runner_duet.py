@@ -41,6 +41,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
         self.alg_cfg = train_cfg["algorithm"] #PPODuet
         self.arm_policy_cfg = train_cfg["arm_policy"] #arm  ac
         self.dog_policy_cfg = train_cfg["dog_policy"] #dog ac
+        self.policy_cfg = train_cfg["policy"]
         self.device = device
         self.env = env
         self._configure_multi_gpu()
@@ -70,13 +71,21 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
             num_privileged_obs = num_obs
 
         arm_policy_class = eval(self.arm_policy_cfg.pop("class_name"))
-        arm_policy: ArmActorCritic = arm_policy_class( # todo  改一下get obs 改一下这里的参数
-                                             num_privileged_obs, self.env.num_actions, **self.policy_cfg
-                                            ).to(self.device)
-        dog_policy_class = eval(self.policy_cfg.pop("class_name"))
-        dog_policy: ArmActorCritic = dog_policy_class( # todo  改一下get obs 改一下这里的参数
-                                             num_privileged_obs, self.env.num_actions, **self.policy_cfg
-                                            ).to(self.device)
+        arm_policy: ArmActorCritic = arm_policy_class( 
+                                                    #     self.arm_policy_cfg['num_obs'],
+                                                    #    self.arm_policy_cfg['num_privileged_obs'],
+                                                    #    self.arm_policy_cfg['num_obs_history'],
+                                                    #    self.arm_policy_cfg['num_actions'], 
+                                                       **self.arm_policy_cfg
+                                                     ).to(self.device)
+        dog_policy_class = eval(self.dog_policy_cfg.pop("class_name"))
+        dog_policy: ArmActorCritic = dog_policy_class( 
+                                                    #     self.dog_policy_cfg['num_obs'],
+                                                    #    self.dog_policy_cfg['num_privileged_obs'],
+                                                    #    self.dog_policy_cfg['num_obs_history'],
+                                                    #    self.dog_policy_cfg['num_actions'], 
+                                                         **self.dog_policy_cfg
+                                                     ).to(self.device)
 
         if "rnd_cfg" in self.alg_cfg and self.alg_cfg["rnd_cfg"] is not None:
             # check if rnd gated state is present
@@ -96,14 +105,34 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
             self.alg_cfg["symmetry_cfg"]["_env"] = env
 
         # initialize algorithm
-        arm_alg_class = eval(self.alg_cfg.pop("class_name"))
-        self.alg_arm: PPODuet = arm_alg_class(arm_policy, device=self.device, **self.alg_cfg, multi_gpu_cfg=self.multi_gpu_cfg)
-        self.alg_arm.init_storage() # todo : 加参数
-        dog_alg_class = eval(self.alg_cfg.pop("class_name"))
-        self.alg_dog: PPODuet = dog_alg_class(dog_policy, device=self.device, **self.alg_cfg, multi_gpu_cfg=self.multi_gpu_cfg)
-        self.alg_dog.init_storage()
+        self.num_steps_per_env = train_cfg["num_steps_per_env"]
+        alg_class = eval(self.alg_cfg.pop("class_name"))
+        self.alg_arm: PPODuet = alg_class(arm_policy, device=self.device, **self.alg_cfg, multi_gpu_cfg=self.multi_gpu_cfg)
+        self.alg_arm.init_storage(
+            self.training_type,
+            self.env.num_envs,
+            self.num_steps_per_env,
+            [self.arm_policy_cfg['num_obs']],
+            [self.arm_policy_cfg['num_privileged_obs']],
+            [self.arm_policy_cfg['num_obs_history']],
+            [self.arm_policy_cfg['num_actions']],
+            [self.arm_policy_cfg['num_actions']]             
+        ) 
+        
+        # dog_alg_class = eval(self.alg_cfg.pop("class_name"))
+        self.alg_dog: PPODuet = alg_class(dog_policy, device=self.device, **self.alg_cfg, multi_gpu_cfg=self.multi_gpu_cfg)
+        self.alg_dog.init_storage(
+            self.training_type,
+            self.env.num_envs,
+            self.num_steps_per_env,
+            [self.dog_policy_cfg['num_obs']],
+            [self.dog_policy_cfg['num_privileged_obs']],
+            [self.dog_policy_cfg['num_obs_history']],
+            [self.dog_policy_cfg['num_actions']],
+            [self.dog_policy_cfg['num_actions']]
+            )
 
-        self.num_steps_per_env = RunnerArgs.num_steps_per_env
+        
         self.save_interval = self.cfg["save_interval"]
         self.empirical_normalization = self.cfg["empirical_normalization"]
 
@@ -129,7 +158,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
         #todo 这里加不加reset
 
 
-    def learn_rl(self, num_learning_iterations: int, init_at_random_ep_len: bool = False):  # noqa: C901
+    def learn(self, num_learning_iterations: int, init_at_random_ep_len: bool = False):  # noqa: C901
         # initialize writer
         self.alg: PPODuet
         if self.log_dir is not None and self.writer is None and not self.disable_logs:
@@ -209,8 +238,8 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                 for i in range(self.num_steps_per_env + 1):
                     # add from duet
                     if global_switch.switch_open:
-                        actions_arm = self.alg_arm.act(obs_arm[:num_train_envs], privileged_obs_arm[:num_train_envs],
-                                                    obs_history_arm[:num_train_envs])
+                        actions_arm = self.alg_arm.act(obs_arm[:self.env.num_envs], privileged_obs_arm[:self.env.num_envs],
+                                                    obs_history_arm[:self.env.num_envs])
                         self.env.plan(actions_arm[..., -self.env.num_plan_actions:])
 
                     dog_obs_dict = self.env.get_dog_observations()
@@ -219,7 +248,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                     else:
                         # use for compute last value
                         obs_dog, privileged_obs_dog, obs_history_dog = dog_obs_dict["obs"], dog_obs_dict["privileged_obs"], dog_obs_dict["obs_history"]
-                        self.alg_dog.process_env_step(rewards_dog[:num_train_envs], dones[:num_train_envs], infos)
+                        self.alg_dog.process_env_step(rewards_dog[:self.env.num_envs], dones[:self.env.num_envs], infos)
                         if i == self.num_steps_per_env:
                             break
                     
@@ -232,7 +261,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                         obs_arm, privileged_obs_arm, obs_history_arm = obs_dict_arm["obs"], obs_dict_arm["privileged_obs"], obs_dict_arm["obs_history"]
                         
                         obs_arm, privileged_obs_arm, obs_history_arm, rewards_dog, rewards_arm, dones = obs_arm.to(self.device), privileged_obs_arm.to(self.device), obs_history_arm.to(self.device), rewards_dog.to(self.device), rewards_arm.to(self.device), dones.to(self.device)
-                        self.alg_arm.process_env_step(rewards_arm[:num_train_envs], dones[:num_train_envs], infos)
+                        self.alg_arm.process_env_step(rewards_arm[:self.env.num_envs], dones[:self.env.num_envs], infos)
                     
                     env_ids = dones.nonzero(as_tuple=False).flatten()
                     self.env.clear_cached(env_ids)
@@ -246,7 +275,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
 
                         new_ids = (dones > 0).nonzero(as_tuple=False)
 
-                        new_ids_train = new_ids[new_ids < num_train_envs]
+                        new_ids_train = new_ids[new_ids < self.env.num_envs]
                         rewbuffer.extend(cur_reward_sum[new_ids_train].cpu().numpy().tolist())
                         lenbuffer.extend(cur_episode_length[new_ids_train].cpu().numpy().tolist())
                         cur_reward_sum[new_ids_train] = 0
@@ -266,8 +295,8 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                 # compute returns
                 if self.training_type == "rl" :
                     if global_switch.switch_open:
-                        self.alg_arm.compute_returns(obs_history_arm[:num_train_envs], privileged_obs_arm[:num_train_envs])
-                    self.alg_dog.compute_returns(obs_history_dog[:num_train_envs], privileged_obs_dog[:num_train_envs])
+                        self.alg_arm.compute_returns(obs_history_arm[:self.env.num_envs], privileged_obs_arm[:self.env.num_envs])
+                    self.alg_dog.compute_returns(obs_history_dog[:self.env.num_envs], privileged_obs_dog[:self.env.num_envs])
             # update policy
             if global_switch.switch_open:
                 mean_value_loss_arm, mean_surrogate_loss_arm, mean_adaptation_module_loss_arm, mean_decoder_loss, mean_decoder_loss_student, mean_adaptation_module_test_loss, mean_decoder_test_loss, mean_decoder_test_loss_student = self.alg_arm.update(un_adapt=False)

@@ -9,27 +9,7 @@ import torch.optim as optim
 from rsl_rl.algorithms import PPO
 from .ac_duet import ArmActorCritic
 from .rollout_storage_duet import RolloutStorageDuet
-from params_proto import PrefixProto
-
-
-class PPO_Args(PrefixProto):
-    # algorithm
-    value_loss_coef = 1.0
-    use_clipped_value_loss = True
-    clip_param = 0.2
-    entropy_coef = 0.01
-    num_learning_epochs = 5
-    num_mini_batches = 4  # mini batch size = num_envs*nsteps / nminibatches
-    learning_rate = 5.e-4  # 5.e-4
-    adaptation_module_learning_rate = 5.e-4
-    num_adaptation_module_substeps = 1
-    schedule = 'adaptive'  # could be adaptive, fixed
-    gamma = 0.99
-    lam = 0.95
-    desired_kl = 0.01
-    max_grad_norm = 1.
-
-    selective_adaptation_module_loss = False
+# from roboduet.agents.rsl_duet_ppo_cfg import PPO_Args
 
 class PPODuet(PPO):
     policy: ArmActorCritic
@@ -48,6 +28,9 @@ class PPODuet(PPO):
                 use_clipped_value_loss=True,
                 schedule="adaptive",
                 desired_kl=0.01,
+                adaptation_module_learning_rate = 5e-4,
+                num_adaptation_module_substeps = 1,
+                selective_adaptation_module_loss = False,
                 device="cpu",
                 normalize_advantage_per_mini_batch=False,
                 # RND parameters
@@ -57,7 +40,7 @@ class PPODuet(PPO):
                 # Distributed training parameters
                 multi_gpu_cfg: dict | None = None, 
                 ):
-
+        
         # self.device = device
         super().__init__(
             policy, 
@@ -84,15 +67,18 @@ class PPODuet(PPO):
             )
 
         # PPO components
+        self.adaptation_module_learning_rate = adaptation_module_learning_rate
+        self.num_adaptation_module_substeps = num_adaptation_module_substeps
+        self.selective_adaptation_module_loss = selective_adaptation_module_loss
         self.storage = None  # initialized later
-        self.optimizer = optim.Adam(self.policy.parameters(), lr=PPO_Args.learning_rate)
+        self.optimizer = optim.Adam(self.policy.parameters(), lr=self.learning_rate)
         self.adaptation_module_optimizer = optim.Adam(self.policy.parameters(),
-                                                      lr=PPO_Args.adaptation_module_learning_rate)
+                                                      lr=self.adaptation_module_learning_rate)
         if self.policy.decoder:
             self.decoder_optimizer = optim.Adam(self.policy.parameters(),
-                                                          lr=PPO_Args.adaptation_module_learning_rate)
+                                                          lr=self.adaptation_module_learning_rate)
         self.transition = RolloutStorageDuet.Transition()
-        self.learning_rate = PPO_Args.learning_rate
+        self.learning_rate = self.learning_rate
 
     def init_storage(self, training_type, num_envs, num_transitions_per_env, actor_obs_shape, privileged_obs_shape, obs_history_shape,
                      actions_shape, action_woc_shape):
@@ -109,7 +95,8 @@ class PPODuet(PPO):
                                           privileged_obs_shape,
                                           obs_history_shape, 
                                           actions_shape, 
-                                          action_woc_shape, 
+                                          action_woc_shape,
+                                          None, 
                                           self.device)
 
     
@@ -154,7 +141,7 @@ class PPODuet(PPO):
         self.transition.env_bins = torch.zeros(self.storage.num_envs, 1,  dtype=torch.long).to(self.device)
         # Bootstrapping on time outs
         if 'time_outs' in infos:
-            self.transition.rewards += PPO_Args.gamma * torch.squeeze(
+            self.transition.rewards += self.gamma * torch.squeeze(
                 self.transition.values * infos['time_outs'].unsqueeze(1).to(self.device), 1)
 
         # Record the transition
@@ -166,7 +153,7 @@ class PPODuet(PPO):
 
     def compute_returns(self, last_critic_obs, last_critic_privileged_obs):
         last_values = self.policy.evaluate(last_critic_obs, last_critic_privileged_obs).detach()
-        self.storage.compute_returns(last_values, PPO_Args.gamma, PPO_Args.lam,normalize_advantage=not self.normalize_advantage_per_mini_batch)
+        self.storage.compute_returns(last_values, self.gamma, self.lam,normalize_advantage=not self.normalize_advantage_per_mini_batch)
 
     def update(self, un_adapt=False):
         mean_value_loss = 0
@@ -192,7 +179,7 @@ class PPODuet(PPO):
         if self.policy.is_recurrent:
             generator = self.storage.recurrent_mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
         else:
-            generator = self.storage.mini_batch_generator(PPO_Args.num_mini_batches, PPO_Args.num_learning_epochs)
+            generator = self.storage.mini_batch_generator(self.num_mini_batches, self.num_learning_epochs)
 
         for obs_batch, critic_obs_batch, privileged_obs_batch, obs_history_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, \
             old_mu_batch, old_sigma_batch,hid_states_batch, masks_batch, env_bins_batch ,rnd_state_batch in generator:
@@ -237,7 +224,7 @@ class PPODuet(PPO):
             entropy_batch = self.policy.entropy[:original_batch_size]
 
             # KL
-            if PPO_Args.desired_kl != None and PPO_Args.schedule == 'adaptive':
+            if self.desired_kl != None and self.schedule == 'adaptive':
                 with torch.inference_mode():
                     kl = torch.sum(
                         torch.log(sigma_batch / old_sigma_batch + 1.e-5) 
@@ -247,9 +234,9 @@ class PPODuet(PPO):
                         axis=-1)
                     kl_mean = torch.mean(kl)
 
-                    if kl_mean > PPO_Args.desired_kl * 2.0:
+                    if kl_mean > self.desired_kl * 2.0:
                         self.learning_rate = max(1e-5, self.learning_rate / 1.5)
-                    elif kl_mean < PPO_Args.desired_kl / 2.0 and kl_mean > 0.0:
+                    elif kl_mean < self.desired_kl / 2.0 and kl_mean > 0.0:
                         self.learning_rate = min(1e-2, self.learning_rate * 1.5)
                     # Reduce the KL divergence across all GPUs
                     if self.is_multi_gpu:
@@ -279,22 +266,22 @@ class PPODuet(PPO):
             # Surrogate loss
             ratio = torch.exp(actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch))
             surrogate = -torch.squeeze(advantages_batch) * ratio
-            surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio, 1.0 - PPO_Args.clip_param,
-                                                                               1.0 + PPO_Args.clip_param)
+            surrogate_clipped = -torch.squeeze(advantages_batch) * torch.clamp(ratio, 1.0 - self.clip_param,
+                                                                               1.0 + self.clip_param)
             surrogate_loss = torch.max(surrogate, surrogate_clipped).mean()
 
             # Value function loss
-            if PPO_Args.use_clipped_value_loss:
+            if self.use_clipped_value_loss:
                 value_clipped = target_values_batch + \
-                                (value_batch - target_values_batch).clamp(-PPO_Args.clip_param,
-                                                                          PPO_Args.clip_param)
+                                (value_batch - target_values_batch).clamp(-self.clip_param,
+                                                                          self.clip_param)
                 value_losses = (value_batch - returns_batch).pow(2)
                 value_losses_clipped = (value_clipped - returns_batch).pow(2)
                 value_loss = torch.max(value_losses, value_losses_clipped).mean()
             else:
                 value_loss = (returns_batch - value_batch).pow(2).mean()
 
-            loss = surrogate_loss + PPO_Args.value_loss_coef * value_loss - PPO_Args.entropy_coef * entropy_batch.mean()
+            loss = surrogate_loss + self.value_loss_coef * value_loss - self.entropy_coef * entropy_batch.mean()
              # Symmetry loss
             if self.symmetry:
                 # obtain the symmetric actions
@@ -352,7 +339,7 @@ class PPODuet(PPO):
                 self.reduce_parameters()
 
             # Apply the gradients
-            nn.utils.clip_grad_norm_(self.policy.parameters(), PPO_Args.max_grad_norm)
+            nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
             self.optimizer.step()
 
             mean_value_loss += value_loss.item()
@@ -370,14 +357,14 @@ class PPODuet(PPO):
             # Adaptation module gradient step
             
             if not un_adapt:
-                for epoch in range(PPO_Args.num_adaptation_module_substeps):
+                for epoch in range(self.num_adaptation_module_substeps):
 
                     adaptation_pred = self.actor_critic.adaptation_module(obs_history_batch)
                     with torch.no_grad():
                         adaptation_target = privileged_obs_batch
 
                     selection_indices = torch.linspace(0, adaptation_pred.shape[1]-1, steps=adaptation_pred.shape[1], dtype=torch.long)
-                    if PPO_Args.selective_adaptation_module_loss:
+                    if self.selective_adaptation_module_loss:
                         # mask out indices corresponding to swing feet
                         selection_indices = 0
 
@@ -393,16 +380,16 @@ class PPODuet(PPO):
                     mean_adaptation_module_loss += adaptation_loss.item()
                     mean_adaptation_module_test_loss += adaptation_test_loss.item()
 
-        num_updates = PPO_Args.num_learning_epochs * PPO_Args.num_mini_batches
+        num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
         mean_entropy /= num_updates
-        mean_adaptation_module_loss /= (num_updates * PPO_Args.num_adaptation_module_substeps)
-        mean_decoder_loss /= (num_updates * PPO_Args.num_adaptation_module_substeps)
-        mean_decoder_loss_student /= (num_updates * PPO_Args.num_adaptation_module_substeps)
-        mean_adaptation_module_test_loss /= (num_updates * PPO_Args.num_adaptation_module_substeps)
-        mean_decoder_test_loss /= (num_updates * PPO_Args.num_adaptation_module_substeps)
-        mean_decoder_test_loss_student /= (num_updates * PPO_Args.num_adaptation_module_substeps)
+        mean_adaptation_module_loss /= (num_updates * self.num_adaptation_module_substeps)
+        mean_decoder_loss /= (num_updates * self.num_adaptation_module_substeps)
+        mean_decoder_loss_student /= (num_updates * self.num_adaptation_module_substeps)
+        mean_adaptation_module_test_loss /= (num_updates * self.num_adaptation_module_substeps)
+        mean_decoder_test_loss /= (num_updates * self.num_adaptation_module_substeps)
+        mean_decoder_test_loss_student /= (num_updates * self.num_adaptation_module_substeps)
         self.storage.clear()
         loss_dict = {
             "value_function": mean_value_loss,

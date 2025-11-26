@@ -74,8 +74,8 @@ class TeacherObservationsCfg:
             params={            
             "asset_cfg":SceneEntityCfg("robot"),
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
-            "parkour_name":'base_parkour',
-            "history_length": 10
+            # "parkour_name":'base_parkour',
+            # "history_length": 10
             },
             clip= (-100,100)
         )
@@ -92,7 +92,7 @@ class StudentRewardsCfg:
     
 
 @configclass
-class TeacherRewardsCfg:
+class DuetRewardsCfg:
     """Reward terms for the MDP.
     ['base', 
     'FL_hip', 
@@ -120,103 +120,6 @@ class TeacherRewardsCfg:
         weight=-10., 
         params={
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=["base",".*_calf",".*_thigh"]),
-        },
-    )
-    reward_feet_edge = RewTerm(
-        func=rewards.reward_feet_edge, 
-        weight=-1.0, 
-        params={
-            "asset_cfg":SceneEntityCfg(name="robot", body_names=["FL_foot","FR_foot","RL_foot","RR_foot"]),
-            "sensor_cfg":SceneEntityCfg(name="contact_forces", body_names=".*_foot"),
-            "parkour_name":'base_parkour',
-        },
-    )
-    reward_torques = RewTerm(
-        func=rewards.reward_torques, 
-        weight=-0.00001, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-        },
-    )
-    reward_dof_error = RewTerm(
-        func=rewards.reward_dof_error, 
-        weight=-0.04, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-        },
-    )
-    reward_hip_pos = RewTerm(
-        func=rewards.reward_hip_pos, 
-        weight=-0.5, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot", joint_names=".*_hip_joint"),
-        },
-    )
-    reward_ang_vel_xy = RewTerm(
-        func=rewards.reward_ang_vel_xy, 
-        weight=-0.05, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-        },
-    )
-    reward_action_rate = RewTerm(
-        func=rewards.reward_action_rate, 
-        weight=-0.1, 
-        params={
-          "asset_cfg":SceneEntityCfg("robot"),
-        },
-    )
-    reward_dof_acc = RewTerm(
-        func=rewards.reward_dof_acc, 
-        weight=-2.5e-7, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-        },
-    )
-    reward_lin_vel_z = RewTerm(
-        func=rewards.reward_lin_vel_z, 
-        weight=-1.0, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-            "parkour_name":'base_parkour',
-        },
-    )
-    reward_orientation = RewTerm(
-        func=rewards.reward_orientation, 
-        weight=-1.0, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-            "parkour_name":'base_parkour',
-        },
-    )
-    reward_feet_stumble = RewTerm(
-        func=rewards.reward_feet_stumble, 
-        weight=-1.0, 
-        params={
-            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
-        },
-    )
-    reward_tracking_goal_vel = RewTerm(
-        func=rewards.reward_tracking_goal_vel, 
-        weight=1.5, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-            "parkour_name":'base_parkour'
-        },
-    )
-    reward_tracking_yaw = RewTerm(
-        func=rewards.reward_tracking_yaw, 
-        weight=0.5, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
-            "parkour_name":'base_parkour'
-        },
-    )
-    reward_delta_torques = RewTerm(
-        func=rewards.reward_delta_torques, 
-        weight=-1.0e-7, 
-        params={
-            "asset_cfg":SceneEntityCfg("robot"),
         },
     )
 

@@ -69,12 +69,12 @@ class normalization(PrefixProto, cli=False):
         body_height_range = [0.0, 0.60]
         gravity_range = [-1.0, 1.0]
         motion = [-0.01, 0.01]
-class RoboDuetObservations(ManagerTermBase):
 
+class RoboDuetObservations(ManagerTermBase):
     def __init__(self, cfg: ObservationTermCfg, env: DuetManagerBasedRLEnv):
         super().__init__(cfg, env)
         self.contact_sensor: ContactSensor = env.scene.sensors['contact_forces']
-        self.duet_event: DuetEvent =  env.duet_manager.get_term(cfg.params["parkour_name"])
+        # self.duet_event: DuetEvent =  env.duet_manager.get_term(cfg.params["parkour_name"])
         self.asset: Articulation = env.scene[cfg.params["asset_cfg"].name]
         self.sensor_cfg = cfg.params["sensor_cfg"]
         self.asset_cfg = cfg.params["asset_cfg"]
@@ -82,8 +82,9 @@ class RoboDuetObservations(ManagerTermBase):
         # self.body_id = self.asset.find_bodies('base')[0]
         self.clock_inputs = torch.zeros(self.num_envs, 4, dtype=torch.float, device=self.device,
                                         requires_grad=False)
+        
     def reset(self, env_ids: Sequence[int] | None = None) -> None:
-        self._obs_history_buffer[env_ids, :, :] = 0. 
+        self.clock_inputs[env_ids, :] = 0. 
 
     def __call__(
         self,
