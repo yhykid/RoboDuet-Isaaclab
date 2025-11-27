@@ -140,7 +140,8 @@ class DuetManagerBasedEnv(ManagerBasedEnv):
         self.duet_manager = DuetManager(self.cfg.roboduet, self)
         print("[INFO] Duet Manager:", self.duet_manager)
         # -- observation manager
-        self.observation_manager = ObservationManager(self.cfg.observations, self)
+        self.observation_manager = ObservationManager(self.cfg.observations, self)  
+        
         print("[INFO] Observation Manager:", self.observation_manager)
 
         # perform events at the start of the simulation

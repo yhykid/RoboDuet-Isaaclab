@@ -24,16 +24,10 @@ class DuetCommandCfg(CommandTermCfg):
         lin_vel_clip: float = MISSING 
         ang_vel_clip: float = MISSING 
 
-
-
     ranges: Ranges = MISSING
     clips: Clips = MISSING
-    goal_vel_visualizer_cfg: VisualizationMarkersCfg = GREEN_ARROW_X_MARKER_CFG.replace(
-        prim_path="/Visuals/Command/velocity_goal"
-    )
 
     current_vel_visualizer_cfg: VisualizationMarkersCfg = BLUE_ARROW_X_MARKER_CFG.replace(
         prim_path="/Visuals/Command/velocity_current"
     )
-    goal_vel_visualizer_cfg.markers["arrow"].scale = (0.5, 0.5, 0.5)
-    current_vel_visualizer_cfg.markers["arrow"].scale = (0.5, 0.5, 0.5)
+

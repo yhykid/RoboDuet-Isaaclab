@@ -25,7 +25,7 @@ class DuetSceneCfg(DuetDefaultSceneCfg):
 class DuetGo2EnvCfg(DuetManagerBasedRLEnvCfg):
     scene: DuetSceneCfg = DuetSceneCfg(num_envs=100, env_spacing=1.)
     # Basic settings
-    observations: TeacherObservationsCfg = TeacherObservationsCfg()
+    observations: DuetObservationsCfg = DuetObservationsCfg()
     actions: ActionsCfg = ActionsCfg()
     commands: CommandsCfg = CommandsCfg()
     # MDP settings

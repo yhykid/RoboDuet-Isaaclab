@@ -41,8 +41,9 @@ class DuetEventsCfg:
         asset_name = 'robot',
         )
 
+
 @configclass
-class ArmObservationsCfg:
+class DuetObservationsCfg:
     """Observation specifications for the MDP."""
 
     @configclass
@@ -54,42 +55,12 @@ class ArmObservationsCfg:
             params={            
             "asset_cfg":SceneEntityCfg("robot"),
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
-            "parkour_name":'base_parkour',
-            "history_length": 10
             },
             clip= (-100,100)
         )
+        # arm_observations = 
     policy: PolicyCfg = PolicyCfg()
 
-@configclass
-class TeacherObservationsCfg:
-    """Observation specifications for the MDP."""
-
-    @configclass
-    class PolicyCfg(ObsGroup):
-        """Observations for policy group."""
-        # observation terms (order preserved)
-        roboduet_observations = ObsTerm(
-            func=observations.RoboDuetObservations,
-            params={            
-            "asset_cfg":SceneEntityCfg("robot"),
-            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
-            # "parkour_name":'base_parkour',
-            # "history_length": 10
-            },
-            clip= (-100,100)
-        )
-    policy: PolicyCfg = PolicyCfg()
-@configclass
-class StudentRewardsCfg:
-    reward_collision = RewTerm(
-        func=rewards.reward_collision, 
-        weight=-0., 
-        params={
-            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=["base",".*_calf",".*_thigh"]),
-        },
-    )
-    
 
 @configclass
 class DuetRewardsCfg:
@@ -162,17 +133,6 @@ class EventCfg:
         },
     )
 
-    ## we don't use this event, If you use this, you will get a bad result
-    # randomize_actuator_gains = EventTerm(
-    #     func= events.randomize_actuator_gains,
-    #     params={
-    #         "asset_cfg" :SceneEntityCfg("robot", joint_names=".*"),
-    #         "stiffness_distribution_params": (0.975, 1.025),  
-    #         "damping_distribution_params": (0.975, 1.025),
-    #         "operation": "scale",
-    #         },
-    #     mode="startup",
-    # )
     randomize_rigid_body_mass = EventTerm(
         func= randomize_rigid_body_mass,
         mode="startup",

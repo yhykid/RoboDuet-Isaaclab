@@ -102,7 +102,15 @@ class DuetRslRlVecEnvWrapper(VecEnv):
         else:
             obs_dict = self.unwrapped._get_observations()
         return obs_dict["policy"], {"observations": obs_dict}
-
+    
+    def get_arm_observations(self) -> tuple[torch.Tensor, dict]:
+        """Returns the current observations of the environment."""
+        if hasattr(self.unwrapped, "observation_manager"):
+            obs_dict = self.unwrapped.observation_manager.arm_observations
+        else:
+            obs_dict = self.unwrapped.get_arm_observations()
+        return obs_dict["policy"], {"observations": obs_dict}
+    
     @property
     def episode_length_buf(self) -> torch.Tensor:
         """The episode length buffer."""

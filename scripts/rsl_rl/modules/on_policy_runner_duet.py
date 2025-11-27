@@ -200,8 +200,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
         # Book keeping
         rewbuffer = deque(maxlen=100)
         lenbuffer = deque(maxlen=100)
-        rewbuffer_eval = deque(maxlen=100)
-        lenbuffer_eval = deque(maxlen=100)
+
         cur_reward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
         cur_episode_length = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
         ep_infos = []

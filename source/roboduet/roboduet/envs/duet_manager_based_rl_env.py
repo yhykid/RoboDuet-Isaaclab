@@ -91,7 +91,7 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
     def max_episode_length(self) -> int:
         """Maximum episode length in environment steps."""
         return math.ceil(self.max_episode_length_s / self.step_dt)
-    
+
     def step(self, action: torch.Tensor) -> VecEnvStepReturn:
         # process actions
         self.action_manager.process_action(action.to(self.device))

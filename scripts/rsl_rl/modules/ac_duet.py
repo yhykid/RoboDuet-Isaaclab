@@ -3,7 +3,7 @@ from typing import Optional
 import torch
 import torch.nn as nn
 from torch.distributions import Normal
-from .feature_extractors.state_encoder import *
+# from .feature_extractors.state_encoder import *
 from rsl_rl.utils import resolve_nn_activation
 
 class ArmActorCritic(nn.Module):
