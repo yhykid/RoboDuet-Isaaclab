@@ -57,8 +57,7 @@ ARX5_GO2_CFG = ArticulationCfg(
         "zarx_j4": 0.0,
         "zarx_j5": 0.0,
         "zarx_j6": 0.0,
-        "zarx_j7": 0.0,
-        "zarx_j8": 0.0, 
+
     },
         joint_vel={".*": 0.0},
     ),
@@ -74,7 +73,7 @@ ARX5_GO2_CFG = ArticulationCfg(
             friction=0.0,
         ),
         "manipulator": DCMotorCfg(
-            joint_names_expr=[ "zarx_j[1-8]"],
+            joint_names_expr=[ "zarx_j[1-6]"],
             effort_limit=10.0,  
             saturation_effort=10.0,
             velocity_limit=15.0,

@@ -1597,7 +1597,7 @@ Stephen Brawner (brawner@gmail.com)
         </collision>
     </link>
     <joint name="zarx_j7"
-        type="prismatic">
+        type="fixed">
         <origin
             xyz="0.073574 0.024629 0"
             rpy="0 0 0" />
@@ -1653,7 +1653,7 @@ Stephen Brawner (brawner@gmail.com)
         </collision>
     </link>
     <joint name="zarx_j8"
-        type="prismatic">
+        type="fixed">
         <origin
             xyz="0.073574 -0.024629 0"
             rpy="0 0 0" />
