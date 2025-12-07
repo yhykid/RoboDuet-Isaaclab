@@ -52,14 +52,69 @@ class DuetObservationsCfg:
         # observation terms (order preserved)
         roboduet_observations = ObsTerm(
             func=observations.RoboDuetObservations,
+            # history_length=30,
             params={            
             "asset_cfg":SceneEntityCfg("robot"),
             "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
             },
             clip= (-100,100)
         )
-        # arm_observations = 
+    @configclass
+    class ArmPolicyCfg(ObsGroup):
+        """Observations for policy group."""
+        # observation terms (order preserved)
+        arm_observations = ObsTerm(
+            func=observations.ArmObservations,
+            # history_length=30,
+            params={            
+            "asset_cfg":SceneEntityCfg("robot"),
+            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
+            },
+            clip= (-100,100)
+        )
+    @configclass
+    class DogPolicyCfg(ObsGroup):
+        """Observations for policy group."""
+        # observation terms (order preserved)
+        dog_observations = ObsTerm(
+            func=observations.DogObservations,
+            # history_length=30,
+            params={            
+            "asset_cfg":SceneEntityCfg("robot"),
+            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
+            },
+            clip= (-100,100)
+        )
+    @configclass
+    class DogPrivPolicyCfg(ObsGroup):
+        """Observations for policy group."""
+        # observation terms (order preserved)
+        dog_privobservations = ObsTerm(
+            func=observations.Dog_PrivObservations,
+            params={            
+            "asset_cfg":SceneEntityCfg("robot"),
+            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
+            },
+            clip= (-100,100)
+        )
+    @configclass
+    class ArmPrivPolicyCfg(ObsGroup):
+        """Observations for policy group."""
+        # observation terms (order preserved)
+        arm_privobservations = ObsTerm(
+            func=observations.Arm_PrivObservations,
+            params={            
+            "asset_cfg":SceneEntityCfg("robot"),
+            "sensor_cfg":SceneEntityCfg("contact_forces", body_names=".*_foot"),
+            },
+            clip= (-100,100)
+        )
     policy: PolicyCfg = PolicyCfg()
+    arm_policy : ArmPolicyCfg = ArmPolicyCfg()
+    dog_policy : DogPolicyCfg = DogPolicyCfg()
+    arm_critic : ArmPrivPolicyCfg = ArmPrivPolicyCfg()
+    dog_critic : DogPrivPolicyCfg = DogPrivPolicyCfg()
+
 
 
 @configclass
@@ -180,7 +235,10 @@ class ActionsCfg:
     joint_pos = MixedPDArmMultiLegJointPositionActionCfg(
         asset_name="robot",
         joint_names=[".*"],
-        arm_joint_names=[ "zarx_j[1-8]"],
+        arm_joint_names=[ "zarx_j[1-6]"],
         leg_joint_names=[".*_hip_joint", ".*_thigh_joint", ".*_calf_joint"],
         scale=0.25,
     )
+
+
+        

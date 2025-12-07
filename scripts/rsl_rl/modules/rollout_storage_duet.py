@@ -181,6 +181,7 @@ class RolloutStorageDuet:
         return trajectory_lengths.float().mean(), self.rewards.mean()
 
     def mini_batch_generator(self, num_mini_batches, num_epochs=8):
+        print('woc')
         if self.training_type != "rl":
             raise ValueError("This function is only available for reinforcement learning training.")
         

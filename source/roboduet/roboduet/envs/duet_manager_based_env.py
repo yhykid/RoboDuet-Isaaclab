@@ -20,7 +20,7 @@ from isaaclab.envs.common import VecEnvObs
 from isaaclab.sim import SimulationContext
 
 from roboduet.envs.duet_viewprot_camera_contoller import DuetViewportCameraController
-
+from roboduet.envs.mdp import RewardThresholdCurriculum
 class DuetManagerBasedEnv(ManagerBasedEnv):
     def __init__(self, cfg: DuetManagerBasedEnvCfg):
         self.cfg: DuetManagerBasedEnvCfg
@@ -124,7 +124,22 @@ class DuetManagerBasedEnv(ManagerBasedEnv):
 
         # initialize observation buffers
         self.obs_buf = {}
+        self._init_command_distribution(torch.arange(self.num_envs, device=self.device))
 
+    def _init_command_distribution(self, env_ids):
+        # new style curriculum
+        self.category_names = ['trot']
+        CurriculumClass = RewardThresholdCurriculum
+        self.curricula = []
+        for category in self.category_names:
+            self.curricula += [CurriculumClass(seed=100,x_vel=(-5.0,5.0,21),y_vel=(-0.6,0.6,1),yaw_vel=(-5,5,21),body_pitch=(-0.4,0.4,1),body_roll=(-0.4,0.4,1),)]
+        import numpy as np
+        self.env_command_bins = np.zeros(len(env_ids), dtype=np.int32)
+        self.env_command_categories = np.zeros(len(env_ids), dtype=np.int32)
+        low = np.array([-1, -0.6,-1,-0.4,-0.4,])
+        high = np.array([1, 0.6,1,0.4,0.4,])
+        for curriculum in self.curricula:
+            curriculum.set_to(low=low, high=high)
 
     def load_managers(self):
         # prepare the managers

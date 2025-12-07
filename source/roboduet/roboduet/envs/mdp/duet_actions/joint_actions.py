@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 import omni.log
 from isaaclab.envs.mdp.actions import JointAction
+from roboduet.utils.switch import global_switch
 
 if TYPE_CHECKING:
     from isaaclab.envs import ManagerBasedEnv
@@ -25,6 +26,7 @@ class MixedPDArmMultiLegJointPositionAction(JointAction):
     ):
         # initialize the action term
         super().__init__(cfg, env)
+        self.env = env
         # use default joint positions as offset
         if cfg.use_default_offset:
             self._offset = self._asset.data.default_joint_pos[
@@ -52,6 +54,7 @@ class MixedPDArmMultiLegJointPositionAction(JointAction):
 
     def apply_actions(self):
         """Apply the actions."""
+        self.keep_arm_fixed(env_ids=torch.arange(self.num_envs, device=self.device))
         self._asset.set_joint_effort_target(
             self._leg_processed_actions, joint_ids=self._leg_joint_ids
         )
@@ -59,6 +62,17 @@ class MixedPDArmMultiLegJointPositionAction(JointAction):
             self.arm_processed_actions, joint_ids=self._arm_joint_ids
         )
 
+    def keep_arm_fixed(self,env_ids):
+        if global_switch.switch_open:
+            idx = self.env.num_actions_loco + self.env.num_actions_arm
+        else:
+            idx = self.env.num_actions_loco
+        joint_pos, joint_vel = torch.zeros_like(self._offset), torch.zeros_like(self._offset)
+        joint_pos[:, idx:] = self._offset[:, idx:]
+        joint_vel[:, idx:] = 0
+        # ret = self.gym.set_dof_state_tensor(self.sim, gymtorch.unwrap_tensor(self.dof_state))
+        self._asset.write_joint_state_to_sim(joint_pos, joint_vel, env_ids=env_ids)
+        # assert ret, "[ERROR] Failed to set dof state."
     def process_actions(self, actions: torch.Tensor):
         """Process the actions."""
         #todo 
@@ -69,7 +83,7 @@ class MixedPDArmMultiLegJointPositionAction(JointAction):
         # store the non-command leg actions
 
         # store the raw arm actions, which is the target joint pos
-        self._arm_raw_actions[:] = self.command.arm_joint_sub_goal
+        # self._arm_raw_actions[:] = self.command.arm_joint_sub_goal
         self._arm_processed_actions[:] = self._arm_raw_actions.clone()
 
         self._leg_processed_actions[:] = self._leg_raw_actions.clone()

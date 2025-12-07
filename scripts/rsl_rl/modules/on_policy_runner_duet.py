@@ -191,6 +191,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
 
         # start learning
         obs_dict_arm = self.env.get_arm_observations()
+        # print(obs_dict_arm)
         obs_arm, privileged_obs_arm, obs_history_arm = obs_dict_arm["obs"], obs_dict_arm["privileged_obs"], obs_dict_arm["obs_history"]
         obs_arm, privileged_obs_arm, obs_history_arm = obs_arm.to(self.device), privileged_obs_arm.to(self.device), obs_history_arm.to(
             self.device)
@@ -205,13 +206,10 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
         cur_episode_length = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
         ep_infos = []
 
-        # obs, extras = self.env.get_observations()
-        # privileged_obs = extras["observations"].get(self.privileged_obs_type, obs)
-        # obs, privileged_obs = obs.to(self.device), privileged_obs.to(self.device)
-        # self.train_mode()  # switch to train mode (for dropout for example)
+
 
         # create buffers for logging extrinsic and intrinsic rewards
-        if self.alg.rnd:
+        if self.alg_arm.rnd:
             erewbuffer = deque(maxlen=100)
             irewbuffer = deque(maxlen=100)
             cur_ereward_sum = torch.zeros(self.env.num_envs, dtype=torch.float, device=self.device)
@@ -226,7 +224,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
 
         mean_value_loss_arm, mean_surrogate_loss_arm, mean_adaptation_module_loss_arm = 0, 0, 0
         mean_value_loss_dog, mean_surrogate_loss_dog, mean_adaptation_module_loss_dog = 0, 0, 0
-        actions_arm = torch.zeros(self.env.num_envs, self.env.num_actions_arm, dtype=torch.float, device=self.device, requires_grad=False)
+        actions_arm = torch.zeros(self.env.num_envs,self.env.unwrapped.num_actions_arm , dtype=torch.float, device=self.device, requires_grad=False) 
         # Start training
         start_iter = self.current_learning_iteration
         tot_iter = start_iter + num_learning_iterations
@@ -239,7 +237,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                     if global_switch.switch_open:
                         actions_arm = self.alg_arm.act(obs_arm[:self.env.num_envs], privileged_obs_arm[:self.env.num_envs],
                                                     obs_history_arm[:self.env.num_envs])
-                        self.env.plan(actions_arm[..., -self.env.num_plan_actions:])
+                        self.env.plan(actions_arm[..., -2:])
 
                     dog_obs_dict = self.env.get_dog_observations()
                     
@@ -252,7 +250,8 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                             break
                     
                     actions_dog = self.alg_dog.act(dog_obs_dict["obs"], dog_obs_dict["privileged_obs"], dog_obs_dict["obs_history"])
-                    ret = self.env.step(actions_dog, actions_arm[..., :-self.env.num_plan_actions])
+                    action = torch.concat([actions_dog, actions_arm], dim=-1)
+                    ret = self.env.step(action)
                     rewards_dog, rewards_arm, dones, infos = ret
                     
                     if global_switch.switch_open:
@@ -263,7 +262,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                         self.alg_arm.process_env_step(rewards_arm[:self.env.num_envs], dones[:self.env.num_envs], infos)
                     
                     env_ids = dones.nonzero(as_tuple=False).flatten()
-                    self.env.clear_cached(env_ids)
+                    self.env.clear_cached(env_ids) #obs his 清空
 
                     if self.log_dir is not None:
                         if 'train/episode' in infos:
@@ -282,7 +281,7 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
 
 
                         # -- intrinsic and extrinsic rewards
-                        if self.alg.rnd:
+                        if self.alg_arm.rnd:
                             erewbuffer.extend(cur_ereward_sum[new_ids][:, 0].cpu().numpy().tolist())
                             irewbuffer.extend(cur_ireward_sum[new_ids][:, 0].cpu().numpy().tolist())
                             cur_ereward_sum[new_ids] = 0
@@ -305,6 +304,18 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
             learn_time = stop - start
             self.current_learning_iteration = it
             global_switch.count += 1
+
+            if it == global_switch.pretrained_to_hybrid_start:
+                blue_bold_text = '\033[1;34m'  # bold blue
+                reset_color = '\033[0m'  # reset
+                print(blue_bold_text + '=' * 160 + '\n' 
+                      + 'Multi-agents Policy Output: Pretrained model training finished, start to train hybrid model.' + '\n'
+                      + '=' * 160 + reset_color)
+                global_switch.open_switch()
+                change_setting = vars(self.env.cfg.hybrid.rewards) # todo
+                for key, value in change_setting.items():
+                    setattr(self.env.cfg.rewards, key, value)
+            
             # log info
             if self.log_dir is not None and not self.disable_logs:
                 # Log information
@@ -331,23 +342,20 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
     def save(self, path: str, infos=None):
         # -- Save model
         saved_dict = {
-            "model_state_dict": self.alg.policy.state_dict(),
-            'estimator_state_dict': self.alg.estimator.state_dict(),
-            "optimizer_state_dict": self.alg.optimizer.state_dict(),
+            "model_state_dict": self.alg_arm.policy.state_dict(),
+            "optimizer_state_dict": self.alg_arm.optimizer.state_dict(),
             "iter": self.current_learning_iteration,
             "infos": infos,
         }
         # -- Save RND model if used
-        if self.alg.rnd:
+        if self.alg_arm.rnd:
             saved_dict["rnd_state_dict"] = self.alg.rnd.state_dict()
             saved_dict["rnd_optimizer_state_dict"] = self.alg.rnd_optimizer.state_dict()
         # -- Save observation normalizer if used
         if self.empirical_normalization:
             saved_dict["obs_norm_state_dict"] = self.obs_normalizer.state_dict()
             saved_dict["privileged_obs_norm_state_dict"] = self.privileged_obs_normalizer.state_dict()
-        if self.depth_encoder_cfg is not None :
-            saved_dict['depth_encoder_state_dict'] = self.alg.depth_encoder.state_dict()
-            saved_dict['depth_actor_state_dict'] = self.alg.depth_actor.state_dict()
+
         # save model
         torch.save(saved_dict, path)
 
@@ -425,3 +433,114 @@ class OnPolicyRunnerDuet(OnPolicyRunner):
                 self.obs_normalizer.to(device)
             policy = lambda x: self.alg.depth_actor(self.obs_normalizer(x))  # noqa: E731
         return policy
+    
+    def log(self, locs: dict, width: int = 80, pad: int = 35):
+        # Compute the collection size
+        collection_size = self.num_steps_per_env * self.env.num_envs * self.gpu_world_size
+        # Update total time-steps and time
+        self.tot_timesteps += collection_size
+        self.tot_time += locs["collection_time"] + locs["learn_time"]
+        iteration_time = locs["collection_time"] + locs["learn_time"]
+
+        # -- Episode info
+        ep_string = ""
+        if locs["ep_infos"]:
+            for key in locs["ep_infos"][0]:
+                infotensor = torch.tensor([], device=self.device)
+                for ep_info in locs["ep_infos"]:
+                    # handle scalar and zero dimensional tensor infos
+                    if key not in ep_info:
+                        continue
+                    if not isinstance(ep_info[key], torch.Tensor):
+                        ep_info[key] = torch.Tensor([ep_info[key]])
+                    if len(ep_info[key].shape) == 0:
+                        ep_info[key] = ep_info[key].unsqueeze(0)
+                    infotensor = torch.cat((infotensor, ep_info[key].to(self.device)))
+                value = torch.mean(infotensor)
+                # log to logger and terminal
+                if "/" in key:
+                    self.writer.add_scalar(key, value, locs["it"])
+                    ep_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+                else:
+                    self.writer.add_scalar("Episode/" + key, value, locs["it"])
+                    ep_string += f"""{f'Mean episode {key}:':>{pad}} {value:.4f}\n"""
+
+        arm_mean_std = self.alg_arm.policy.std.mean()
+        dog_mean_std = self.alg_dog.policy.std.mean()
+        fps = int(collection_size / (locs["collection_time"] + locs["learn_time"]))
+
+        # -- Losses
+        loss_items = {k: v for k, v in locs.items() if k.startswith("mean_")}
+        for key, value in loss_items.items():
+            self.writer.add_scalar(f"Loss/{key}", value, locs["it"])
+        self.writer.add_scalar("Loss/arm_learning_rate", self.alg_arm.learning_rate, locs["it"])
+        self.writer.add_scalar("Loss/dog_learning_rate", self.alg_dog.learning_rate, locs["it"])
+
+        # -- Policy
+        self.writer.add_scalar("ArmPolicy/mean_noise_std", arm_mean_std.item(), locs["it"])
+        self.writer.add_scalar("DogPolicy/mean_noise_std", dog_mean_std.item(), locs["it"])
+
+        # -- Performance
+        self.writer.add_scalar("Perf/total_fps", fps, locs["it"])
+        self.writer.add_scalar("Perf/collection time", locs["collection_time"], locs["it"])
+        self.writer.add_scalar("Perf/learning_time", locs["learn_time"], locs["it"])
+
+        # -- Training
+        if len(locs["rewbuffer"]) > 0:
+            # separate logging for intrinsic and extrinsic rewards
+            if self.alg_arm.rnd:
+                self.writer.add_scalar("Rnd/mean_extrinsic_reward", statistics.mean(locs["erewbuffer"]), locs["it"])
+                self.writer.add_scalar("Rnd/mean_intrinsic_reward", statistics.mean(locs["irewbuffer"]), locs["it"])
+                self.writer.add_scalar("Rnd/weight", self.alg.rnd.weight, locs["it"])
+            # everything else
+            self.writer.add_scalar("Train/mean_reward", statistics.mean(locs["rewbuffer"]), locs["it"])
+            self.writer.add_scalar("Train/mean_episode_length", statistics.mean(locs["lenbuffer"]), locs["it"])
+            if self.logger_type != "wandb":  # wandb does not support non-integer x-axis logging
+                self.writer.add_scalar("Train/mean_reward/time", statistics.mean(locs["rewbuffer"]), self.tot_time)
+                self.writer.add_scalar(
+                    "Train/mean_episode_length/time", statistics.mean(locs["lenbuffer"]), self.tot_time
+                )
+
+        str = f" \033[1m Learning iteration {locs['it']}/{locs['tot_iter']} \033[0m "
+
+        if len(locs["rewbuffer"]) > 0:
+            log_string = (
+                f"""{'#' * width}\n"""
+                f"""{str.center(width, ' ')}\n\n"""
+                f"""{'Computation:':>{pad}} {fps:.0f} steps/s (collection: {locs[
+                    'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
+                f"""{'Mean action noise std:':>{pad}} {dog_mean_std.item():.2f}\n"""
+            )
+            # -- Losses
+            for key, value in loss_items.items():
+                log_string += f"""{f'Mean {key} loss:':>{pad}} {value:.4f}\n"""
+            # -- Rewards
+            if self.alg_arm.rnd:
+                log_string += (
+                    f"""{'Mean extrinsic reward:':>{pad}} {statistics.mean(locs['erewbuffer']):.2f}\n"""
+                    f"""{'Mean intrinsic reward:':>{pad}} {statistics.mean(locs['irewbuffer']):.2f}\n"""
+                )
+            log_string += f"""{'Mean reward:':>{pad}} {statistics.mean(locs['rewbuffer']):.2f}\n"""
+            # -- episode info
+            log_string += f"""{'Mean episode length:':>{pad}} {statistics.mean(locs['lenbuffer']):.2f}\n"""
+        else:
+            log_string = (
+                f"""{'#' * width}\n"""
+                f"""{str.center(width, ' ')}\n\n"""
+                f"""{'Computation:':>{pad}} {fps:.0f} steps/s (collection: {locs[
+                    'collection_time']:.3f}s, learning {locs['learn_time']:.3f}s)\n"""
+                f"""{'Mean action noise std:':>{pad}} {dog_mean_std.item():.2f}\n"""
+            )
+            for key, value in locs["loss_dict"].items():
+                log_string += f"""{f'{key}:':>{pad}} {value:.4f}\n"""
+
+        log_string += ep_string
+        log_string += (
+            f"""{'-' * width}\n"""
+            f"""{'Total timesteps:':>{pad}} {self.tot_timesteps}\n"""
+            f"""{'Iteration time:':>{pad}} {iteration_time:.2f}s\n"""
+            f"""{'Time elapsed:':>{pad}} {time.strftime("%H:%M:%S", time.gmtime(self.tot_time))}\n"""
+            f"""{'ETA:':>{pad}} {time.strftime("%H:%M:%S", time.gmtime(self.tot_time / (locs['it'] - locs['start_iter'] + 1) * (
+                               locs['start_iter'] + locs['num_learning_iterations'] - locs['it'])))}\n"""
+        )
+        print(log_string)

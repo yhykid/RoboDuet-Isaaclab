@@ -146,8 +146,6 @@ class PPODuet(PPO):
 
         # Record the transition
         self.storage.add_transitions(self.transition)
-        
-        self.storage.observation_histories[self.step].copy_(self.transition.observation_histories) #+
         self.transition.clear()
         self.policy.reset(dones)
 
@@ -359,7 +357,7 @@ class PPODuet(PPO):
             if not un_adapt:
                 for epoch in range(self.num_adaptation_module_substeps):
 
-                    adaptation_pred = self.actor_critic.adaptation_module(obs_history_batch)
+                    adaptation_pred = self.policy.adaptation_module(obs_history_batch)
                     with torch.no_grad():
                         adaptation_target = privileged_obs_batch
 

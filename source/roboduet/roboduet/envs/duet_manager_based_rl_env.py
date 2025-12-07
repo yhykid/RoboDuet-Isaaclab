@@ -29,6 +29,7 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
 
     def __init__(self, cfg: DuetManagerBasedRLEnvCfg, render_mode: str | None = None, **kwargs):
         self.common_step_counter = 0
+        self.load_cfg()
         super().__init__(cfg=cfg)
 
         self.render_mode = render_mode
@@ -36,7 +37,31 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
         # -- init buffers
         # -- set the framerate of the gym video recorder wrapper so that the playback speed of the produced video matches the simulation
         self.metadata["render_fps"] = 1 / self.step_dt
+        self.arm_time_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
+        self.T_trajs = torch.zeros(self.num_envs, dtype=torch.float, device=self.device, requires_grad=False)
         print("[INFO]: Completed setting up the environment...")
+        
+    def load_cfg(self):
+        
+        self.num_actions_arm = 6
+        self.num_actions_loco = 12
+        self.num_obs = 63
+        self.num_privileged_obs = 9
+        self.num_actions = 18
+
+        angle75 = torch.deg2rad(torch.tensor(75))
+        angle60 = torch.deg2rad(torch.tensor(60))
+        self.arm_cmd_l = [0.3, 0.77]
+        self.arm_cmd_p = [-torch.pi*0.45 , torch.pi*0.45]  # 75 
+        self.arm_cmd_y = [-torch.pi/2 , torch.pi/2]
+        self.arm_cmd_roll_ee = [-torch.pi * 0.45, torch.pi * 0.45]
+        self.arm_cmd_pitch_ee = [-angle60 , angle60]
+        self.arm_cmd_yaw_ee = [-angle75 , angle75]
+        self.arm_cmd_T_traj = [2, 3.]
+        self.arm_cmd_T_force_range = [1, 4.]
+        self.arm_cmd_add_force_thres = 0.3
+
+      
 
     def load_managers(self):
         # note: this order is important since observation manager needs to know the command and action managers
@@ -59,7 +84,7 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
         self.reward_manager = DuetRewardManager(self.cfg.rewards, self)
         print("[INFO] Reward Manager: ", self.reward_manager)
         # -- curriculum manager
-        self.curriculum_manager = CurriculumManager(self.cfg.curriculum, self)
+        self.curriculum_manager = CurriculumManager(self.cfg.curriculum, self) #todo 加curriculum
         print("[INFO] Curriculum Manager: ", self.curriculum_manager)
 
         # setup the action and observation spaces for Gym
@@ -105,8 +130,8 @@ class DuetManagerBasedRLEnv(DuetManagerBasedEnv, gym.Env):
         for _ in range(self.cfg.decimation):
             self._sim_step_counter += 1
             # set actions into buffers
-            self.action_manager.apply_action()
-            # set actions into simulator
+            self.action_manager.apply_action() # todo : random
+            # set actions into simulator    
             self.scene.write_data_to_sim()
             # simulate
             self.sim.step(render=False)

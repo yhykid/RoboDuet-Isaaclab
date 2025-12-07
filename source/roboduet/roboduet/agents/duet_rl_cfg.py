@@ -20,17 +20,17 @@ RslRlPpoAlgorithmCfg,
 ####### roboduet config ########
 ################################
     
-@configclass
-class DuetRslRlBaseCfg:
-    num_arm_obs = 20 
-    num_arm_privileged_obs = 9
-    num_arm_actions = 8
+# @configclass
+# class DuetRslRlBaseCfg:
+#     num_arm_obs = 20 
+#     num_arm_privileged_obs = 9
+#     num_arm_actions = 8
 
-    num_dog_obs = 56
-    num_dog_privileged_obs = 2
-    num_dog_actions = 12
+#     num_dog_obs = 56
+#     num_dog_privileged_obs = 2
+#     num_dog_actions = 12
 
-    num_obs_history = 30
+#     num_obs_history = 30
 
 @configclass
 class DuetArmRslRlPpoActorCriticCfg(RslRlPpoActorCriticCfg):

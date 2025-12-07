@@ -8,7 +8,7 @@ from roboduet.terrains.extreme_parkour.config.parkour import EXTREME_PARKOUR_TER
 from roboduet.envs import DuetManagerBasedRLEnvCfg
 from roboduet.envs.mdp.duet_mdp_cfg import * 
 from roboduet.default_cfg import DuetDefaultSceneCfg, VIEWER
-
+import torch
 @configclass
 class DuetSceneCfg(DuetDefaultSceneCfg):
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Robot/.*", 
@@ -45,12 +45,16 @@ class DuetGo2EnvCfg(DuetManagerBasedRLEnvCfg):
         self.sim.physics_material = self.scene.terrain.physics_material
         self.sim.physx.gpu_max_rigid_patch_count = 10 * 2**18
         # update sensor update periods
-        # self.scene.height_scanner.update_period = self.sim.dt * self.decimation
         self.scene.contact_forces.update_period = self.sim.dt * self.decimation
         self.scene.terrain.terrain_generator.curriculum = True
         self.actions.joint_pos.use_delay = False
         self.actions.joint_pos.history_length = 1
         self.events.random_camera_position = None
+
+        
+
+        
+
 
 @configclass
 class DuetGo2EnvCfg_EVAL(DuetGo2EnvCfg):
